@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+COMMAND="echo 'Replace me'"
+ROOM_NAME="Standup"
+
+if [ -z "$TUPLE_TRIGGER_IS_SELF" ]; then
+    exit 0
+fi
+
+if [ "$ROOM_NAME" != "$TUPLE_TRIGGER_ROOM_NAME" ]; then
+    exit 0
+fi
+
+
+osascript <<END
+tell application "iTerm"
+    activate
+    if (count of windows) = 0 then
+        set newWindow to (create window with default profile)
+    else
+        set newWindow to current window
+    end if
+    
+    tell newWindow
+        set newTab to (create tab with default profile)
+        tell newTab
+            tell current session
+                write text "${COMMAND}"
+            end tell
+        end tell
+    end tell
+end tell
+END
