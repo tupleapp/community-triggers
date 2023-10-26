@@ -1,0 +1,6 @@
+{
+  "name": "git-coauthors",
+  "description": "Automatically add git coauthors when pairing on a call",
+  "platforms": ["macos", "linux"],
+  "language": "ruby"
+}
