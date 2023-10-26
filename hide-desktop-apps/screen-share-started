@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ -z "$TUPLE_HOOK_IS_SELF" ]; then
+    exit 0
+fi
+
+defaults write com.apple.finder CreateDesktop -bool false && killall Finder
