@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+
+email = ENV.fetch("TUPLE_TRIGGER_EMAIL")
+name = ENV.fetch("TUPLE_TRIGGER_FULL_NAME")
+template_path = "#{Dir.home}/.gitmessage"
+line = "Co-Authored-By: #{name} <#{email}>"
+
+exists = File.exists?(template_path)
+
+if exists && File.read(template_path).include?(line)
+  exit 0
+end
+
+File.open(template_path, "a") do |f|
+  f.puts if !exists
+  f.puts line
+end

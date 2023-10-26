@@ -3,7 +3,7 @@
 COMMAND="echo 'Replace me'"
 ROOM_NAME="Standup"
 
-if [ -z "$TUPLE_HOOK_IS_SELF" ]; then
+if [ -z "$TUPLE_TRIGGER_IS_SELF" ]; then
     exit 0
 fi
 
