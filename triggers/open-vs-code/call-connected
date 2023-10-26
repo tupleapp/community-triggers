@@ -1,0 +1,3 @@
+#!/usr/bin/env osascript
+
+tell application "Visual Studio Code" to activate

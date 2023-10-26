@@ -1,0 +1,6 @@
+{
+  "name": "Hide 1Password",
+  "description": "Automatically hide 1Password when sharing your screen.",
+  "platforms": ["macos"],
+  "language": "bash"
+}

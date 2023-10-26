@@ -1,0 +1,6 @@
+{
+  "name": "Open VS Code",
+  "description": "Open Visual Studio Code when a call starts.",
+  "platforms": ["macos"],
+  "language": "applescript"
+}
