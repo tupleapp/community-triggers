@@ -1,0 +1,6 @@
+{
+  "name": "Open Figma",
+  "description": "Automatically opens Figma when a call starts.",
+  "platforms": ["macos"],
+  "language": "applescript"
+}
