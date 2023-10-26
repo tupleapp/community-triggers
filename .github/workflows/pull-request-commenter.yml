@@ -1,0 +1,40 @@
+name: Pull Request Commenter
+on:
+  workflow_run:
+    workflows: ["Pull Request Validator"]
+    types:
+      - completed
+jobs:
+  pull-request-commenter:
+    name: Commenter
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: |
+            cwd: util
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const download = require("./util/pull-request-validation-downloader.js");
+            await download({
+              github,
+              context,
+              core,
+              runID: ${{github.event.workflow_run.id}}
+            });
+      - run: unzip validation-results.zip
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const comment = require("./util/pull-request-commenter.js");
+            await comment({ github, context, core });

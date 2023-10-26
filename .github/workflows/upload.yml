@@ -1,0 +1,89 @@
+name: Upload
+on:
+  push:
+    branches: main
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: |
+            cwd: util
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const validateTriggers = require("./util/validate-triggers.js");
+            validateTriggers({ core });
+  icons:
+    needs: validate
+    name: Upload Icons
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: |
+            cwd: util
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const collectChangedIcons = require("./util/collect-changed-trigger-icons.js");
+            await collectChangedIcons({ github, context });
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
+          aws-region: us-east-2
+      - run: aws s3 sync ${{runner.temp}}/icons s3://tuple-hooks-production/icons
+  archives:
+    needs: icons
+    name: Upload Archives and Metadata
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: |
+            cwd: util
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const archiveChangedTriggers = require("./util/archive-changed-triggers.js");
+            await archiveChangedTriggers({ github, context });
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
+          aws-region: us-east-2
+      - run: aws s3 sync ${{runner.temp}}/archives s3://tuple-hooks-production/archives
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const uploadMetadata = require("./util/upload-metadata.js");
+            await uploadMetadata({
+              github,
+              context,
+              metadataDynamoDBTableName: "${{secrets.METADATA_DYNAMODB_TABLE_NAME}}",
+              contributorsDynamoDBTableName: "${{secrets.CONTRIBUTORS_DYNAMODB_TABLE_NAME}}"
+            });

@@ -1,0 +1,23 @@
+Thanks for your contribution, @<%= context.payload.sender.login %>! :tada:
+
+<% if (results.length === 1) { %>
+  We've done some automated sense checks on your trigger, `<%= results[0].trigger %>`. <% if (results[0].success) { -%>All looks great! Someone from Tuple will now manually review your trigger's code and get back to you.<%_ } else { -%>It seems there might be some more work to do:<%_ } -%>
+
+  <% (results[0].errors || []).forEach((error) => { %>
+   - <%= error -%>
+  <% }) -%>
+<% } else { %>
+  We've done some automated sense checks on your triggers. <% if (results.every((result) => result.success)) { -%>All looks great! Someone from Tuple will now manually review your triggers' code and get back to you.<%_ } else { -%>It seems there might be some more work to do:<%_ } -%>
+
+  <% results.forEach((result) => { %>
+    ## <%= result.trigger %>
+
+    <% if (result.success) { -%>
+      - All good! :white_check_mark:
+    <% } else { -%>
+      <% result.errors.forEach((error) => { %>
+        - <%= error -%>
+      <% }) -%>
+    <% } %>
+  <% }) -%>
+<% } -%>

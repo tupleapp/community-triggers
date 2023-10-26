@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+slugify() {
+    echo "$1" | iconv -t ascii//TRANSLIT | sed -E 's/[^a-zA-Z0-9]+/-/g' | tr A-Z a-z | sed -E 's/^-+|-+$//g'
+}
+
+to_lower() {
+    echo "$1" | tr 'A-Z' 'a-z'
+}
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+BASE_DIR="$SCRIPTPATH/.."
+cd "$BASE_DIR"
+
+echo "What would you like to name your trigger?"
+read TRIGGER_NAME
+
+echo "Please describe the functionality of your trigger?"
+read TRIGGER_DESC
+
+echo "What language will your trigger be written in?"
+select TRIGGER_LANG in Bash Ruby JavaScript Python Applescript; do
+    break
+done
+
+echo "What platform will this trigger support?"
+select TRIGGER_PLATFORM in macOS Linux Windows; do
+    break
+done
+
+NEW_TRIGGER_DIR="$BASE_DIR/triggers/$(slugify "$TRIGGER_NAME")"
+
+mkdir "$NEW_TRIGGER_DIR"
+cd "$NEW_TRIGGER_DIR"
+
+mkdir assets
+cp "$BASE_DIR/scripts/assets/default-icon.png" assets/icon.png
+
+cat << EOF > README.md
+# $TRIGGER_NAME
+
+$TRIGGER_DESC
+EOF
+
+cat << EOF > config.json
+{
+  "name": "$TRIGGER_NAME",
+  "description": "$TRIGGER_DESC",
+  "platforms": ["$(to_lower $TRIGGER_PLATFORM)"],
+  "language": "$(to_lower $TRIGGER_LANG)"
+}
+EOF
+
+echo
+echo "Your new trigger directory was generated at:"
+echo "$(realpath $NEW_TRIGGER_DIR)"
