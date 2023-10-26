@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# This trigger requires you to have created a shortcut in the Shortcuts macOS
+# app named "dnd-on", which enables Do Not Disturb focus.
+
+shortcuts run "dnd-on"
