@@ -1,0 +1,6 @@
+{
+  "name": "Hide Desktop Apps",
+  "description": "Hide all icons on your desktop when sharing your screen.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
