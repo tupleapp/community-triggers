@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ -n "$TUPLE_HOOK_IS_SELF" ]; then
+if [ -n "$TUPLE_TRIGGER_IS_SELF" ]; then
 osascript <<END
 tell application "System Events" to set visible of application process "1Password" to true
 END
