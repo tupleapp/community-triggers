@@ -1,0 +1,6 @@
+{
+  "name": "iTerm Command",
+  "description": "Run any command via iTerm when joining a room.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
