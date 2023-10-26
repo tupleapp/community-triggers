@@ -1,0 +1,6 @@
+{
+  "name": "Slack Notify",
+  "description": "Notify a Slack channel when you join a room.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
