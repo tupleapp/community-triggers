@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+
+email = ENV.fetch("TUPLE_TRIGGER_EMAIL")
+name = ENV.fetch("TUPLE_TRIGGER_FULL_NAME")
+template_path = "#{Dir.home}/.gitmessage"
+
+if !File.exists?(template_path)
+  exit 0
+end
+
+content = File.read(template_path).split("\n")
+filtered = content.reject { |l| l.include?("Co-Authored-By: #{name} <#{email}>") }
+
+File.open(template_path, "w") do |f|
+  f.puts(filtered)
+end
