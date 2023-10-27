@@ -1,0 +1,6 @@
+{
+  "name": "Pause Apple Music",
+  "description": "Automatically pause Apple Music when a call starts.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
