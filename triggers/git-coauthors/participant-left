@@ -4,7 +4,7 @@ email = ENV.fetch("TUPLE_TRIGGER_EMAIL")
 name = ENV.fetch("TUPLE_TRIGGER_FULL_NAME")
 template_path = "#{Dir.home}/.gitmessage"
 
-if !File.exists?(template_path)
+if !File.exist?(template_path)
   exit 0
 end
 
