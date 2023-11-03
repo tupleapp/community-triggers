@@ -1,0 +1,6 @@
+{
+  "name": "Google Calendar Update",
+  "description": "Add an event to Google Calendar after ending a call with a title.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
