@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Get call length in seconds
-CALL_LENGTH="$TUPLE_TRIGGER_CALL_LENGTH"  # Replace with the actual call length
+CALL_LENGTH="$TUPLE_TRIGGER_CALL_LENGTH"
 
 # Get the current time and calculate the start time
 CURRENT_TIME=$(date -u +"%Y%m%dT%H%M%SZ")
