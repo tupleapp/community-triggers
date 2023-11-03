@@ -9,7 +9,7 @@ if [ -n "$TUPLE_TRIGGER_IS_SELF" ]; then
             var tabs = windows[i].tabs();
             for (var j = tabs.length - 1; j >= 0; j--) {
                 var tab = tabs[j];
-                if (tab.url().includes("mail.google.com")) {
+                if (tab.url().startsWith("https://mail.google.com/")) {
                     tab.close();
                 }
             }
