@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ -n "$TUPLE_TRIGGER_IS_SELF" ]; then
+osascript <<END
+tell application "System Events" to set visible of application process "Discord" to false
+END
+fi

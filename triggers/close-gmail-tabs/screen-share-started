@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+if [ -n "$TUPLE_TRIGGER_IS_SELF" ]; then
+  osascript -l JavaScript <<'END'
+    var chrome = Application('Google Chrome');
+    if (chrome.running()) {
+        var windows = chrome.windows();
+        for (var i = 0; i < windows.length; i++) {
+            var tabs = windows[i].tabs();
+            for (var j = tabs.length - 1; j >= 0; j--) {
+                var tab = tabs[j];
+                if (tab.url().includes("mail.google.com")) {
+                    tab.close();
+                }
+            }
+        }
+    }
+END
+fi
