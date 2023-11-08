@@ -3,7 +3,7 @@
 # Replace with your generated URL from README instructions.
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxxxxxxxx/yyyyyyyyyy/zzzzzzzzzz
 
-if [ -n "$TUPLE_TRIGGER_IS_SELF" ]; then
+if [ "$TUPLE_TRIGGER_IS_SELF" = "true" ]; then
   MESSAGE="$TUPLE_TRIGGER_FULL_NAME joined the $TUPLE_TRIGGER_ROOM_NAME room"
   curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" $SLACK_WEBHOOK_URL
 fi
