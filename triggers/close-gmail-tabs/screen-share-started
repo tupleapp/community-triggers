@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ -n "$TUPLE_TRIGGER_IS_SELF" ]; then
+if [ "$TUPLE_TRIGGER_IS_SELF" = "true" ]; then
   osascript -l JavaScript <<'END'
     var chrome = Application('Google Chrome');
     if (chrome.running()) {

@@ -3,7 +3,7 @@
 COMMAND="echo 'Replace me'"
 ROOM_NAME="Standup"
 
-if [ -z "$TUPLE_TRIGGER_IS_SELF" ]; then
+if [ "$TUPLE_TRIGGER_IS_SELF" = "false" ]; then
     exit 0
 fi
 
@@ -20,7 +20,7 @@ tell application "iTerm"
     else
         set newWindow to current window
     end if
-    
+
     tell newWindow
         set newTab to (create tab with default profile)
         tell newTab

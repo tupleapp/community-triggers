@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ -z "$TUPLE_TRIGGER_IS_SELF" ]; then
+if [ "$TUPLE_TRIGGER_IS_SELF" = "false" ]; then
     exit 0
 fi
 
