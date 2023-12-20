@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# Replace with your generated URL from README instructions.
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxxxxxxxx/yyyyyyyyyy/zzzzzzzzzz
+
+# Construct the initial part of the message
+INITIAL_MESSAGE="$TUPLE_TRIGGER_FULL_NAME just finished pairing, here's what they said"
+
+# AppleScript for input dialog to get additional details
+DETAILS=$(osascript -e 'Tell application "System Events" to display dialog "Enter details about the call to send to Slack (you will have a chance to preview before sending):" default answer ""' -e 'text returned of result' 2>/dev/null)
+
+# Check if user pressed "Cancel"
+ if [ $? -ne 0 ]; then
+   echo "User canceled the input dialog. Exiting script."
+   exit 0
+ fi
+
+# Combine the initial part with the user-provided details
+FULL_MESSAGE="$INITIAL_MESSAGE - '$DETAILS'"
+
+# Preview the message
+RESPONSE=$(osascript -e 'Tell application "System Events" to display dialog "Send this message to Slack?\n\n'"$FULL_MESSAGE"'" buttons {"Cancel", "Send"} default button "Send"' -e 'button returned of result' 2>/dev/null)
+
+# Check if user confirmed to send the message
+if [ "$RESPONSE" = "Send" ]; then
+	# Properly escape the message for JSON and send it to Slack
+	ESCAPED_MESSAGE=$(echo "$FULL_MESSAGE" | sed 's/"/\\"/g; s/\\/\\\\/g; s/\//\\\//g; s/`/\\`/g')
+	JSON_PAYLOAD="{\"text\": \"$ESCAPED_MESSAGE\"}"
+	curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL"
+else
+  echo "User canceled the preview dialog. Exiting script."
+fi
