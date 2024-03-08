@@ -1,0 +1,6 @@
+{
+  "name": "Hide Microsoft Teams (work or school).app",
+  "description": "Automatically hide Microsoft Teams when sharing your screen.",
+  "platforms": ["macos"],
+  "language": "applescript"
+}
