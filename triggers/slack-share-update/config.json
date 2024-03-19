@@ -1,0 +1,6 @@
+{
+  "name": "Slack Share Update",
+  "description": "Notify a Slack channel what you worked on, or what you want to pair on.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
