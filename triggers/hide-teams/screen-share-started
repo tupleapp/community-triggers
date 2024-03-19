@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ "$TUPLE_TRIGGER_IS_SELF" = "true" ]; then
+  osascript <<END
+tell application "System Events" to set visible of application process "Microsoft Teams(work or school)" to false
+END
+fi
