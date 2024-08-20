@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# Set your preferred mode, if you don't want the currently-selected one
+# open superwhisper://mode?key=meeting
+
+# Toggle recording.
+open superwhisper://record
