@@ -1,0 +1,6 @@
+{
+  "name": "Toggle Superwhisper",
+  "description": "Automatically start and stop Superwhisper transcription",
+  "platforms": ["macos"],
+  "language": "bash"
+}
