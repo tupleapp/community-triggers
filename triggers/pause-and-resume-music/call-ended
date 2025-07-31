@@ -1,0 +1,22 @@
+#!/usr/bin/env osascript
+
+set flagFile to (path to temporary items folder as text) & "music_paused_by_script.txt"
+
+if application "Music" is running then
+    tell application "Music"
+        -- Check if the flag file exists
+        try
+            set flagExists to (do shell script "test -f " & quoted form of POSIX path of flagFile & " && echo 'exists'")
+            if flagExists is "exists" then
+                -- If the player is paused and the flag exists, resume playback
+                if player state is paused then
+                    play
+                end if
+                -- Remove the flag file in all cases
+                do shell script "rm " & quoted form of POSIX path of flagFile
+            end if
+        on error
+            -- If the flag file doesn't exist, do nothing
+        end try
+    end tell
+end if

@@ -1,0 +1,6 @@
+{
+  "name": "Pause and Resume Apple Music",
+  "description": "Automatically pause Apple Music when a call starts and resume it once call ends.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
