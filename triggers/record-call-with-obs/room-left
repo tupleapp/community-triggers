@@ -3,7 +3,9 @@ import OBSWebSocket from 'npm:obs-websocket-js';
 
 const obs = new OBSWebSocket();
 
-obs.connect('ws://127.0.0.1:4455')
+obs.connect('ws://127.0.0.1:4455', {
+    // password: 'your_password' // Replace with your OBS WebSocket password
+})
 .then(() => {
     console.log('Connected to OBS Studio!');
     return obs.call('StopRecord');
