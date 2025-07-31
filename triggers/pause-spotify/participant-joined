@@ -1,0 +1,3 @@
+#!/usr/bin/env osascript
+
+if application "Spotify" is running then tell application "Spotify" to pause
