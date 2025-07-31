@@ -1,0 +1,18 @@
+#!/usr/local/bin/deno run --allow-env --allow-net
+import OBSWebSocket from 'npm:obs-websocket-js';
+
+const obs = new OBSWebSocket();
+
+obs.connect('ws://127.0.0.1:4455')
+.then(() => {
+    console.log('Connected to OBS Studio!');
+    return obs.call('StopRecord');
+})
+.then(() => {
+    console.log('Recording stopped!');
+})
+.catch(err => {
+    console.error('Failed to connect or send request:', err);
+}).finally(() => {
+    obs.disconnect();
+});
