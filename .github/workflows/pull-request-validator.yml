@@ -23,7 +23,7 @@ jobs:
           script: |
             const validate = require("./util/pull-request-validator.js");
             await validate({ github, context, core });
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: validation-results.json
