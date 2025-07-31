@@ -15,8 +15,8 @@ dependencies:
     specifier: ^3.1.9
     version: 3.1.9
   zod:
-    specifier: ^3.22.2
-    version: 3.22.2
+    specifier: ^4.0.14
+    version: 4.0.14
 
 packages:
 
@@ -991,6 +991,6 @@ packages:
     hasBin: true
     dev: false
 
-  /zod@3.22.2:
-    resolution: {integrity: sha512-wvWkphh5WQsJbVk1tbx1l1Ly4yg+XecD+Mq280uBGt9wa5BKSWf4Mhp6GmrkPixhMxmabYY7RbzlwVP32pbGCg==}
+  /zod@4.0.14:
+    resolution: {integrity: sha512-nGFJTnJN6cM2v9kXL+SOBq3AtjQby3Mv5ySGFof5UGRHrRioSJ5iG680cYNjE/yWk671nROcpPj4hAS8nyLhSw==}
     dev: false
