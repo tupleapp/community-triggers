@@ -9,8 +9,8 @@ dependencies:
     specifier: ^3.862.0
     version: 3.862.0
   '@aws-sdk/lib-dynamodb':
-    specifier: ^3.417.0
-    version: 3.417.0(@aws-sdk/client-dynamodb@3.862.0)
+    specifier: ^3.862.0
+    version: 3.862.0(@aws-sdk/client-dynamodb@3.862.0)
   ejs:
     specifier: ^3.1.10
     version: 3.1.10
@@ -291,15 +291,19 @@ packages:
       tslib: 2.8.1
     dev: false
 
-  /@aws-sdk/lib-dynamodb@3.417.0(@aws-sdk/client-dynamodb@3.862.0):
-    resolution: {integrity: sha512-+8ewIPwf4uvgan0/MGpz8dqfrLPEQxCbz/R3rU37ZoE4ELt8lF6RFXibZN83+PcDhSL/myfchg4cWNR2v/mghQ==}
-    engines: {node: '>=14.0.0'}
+  /@aws-sdk/lib-dynamodb@3.862.0(@aws-sdk/client-dynamodb@3.862.0):
+    resolution: {integrity: sha512-DWuAXx1IkqIPNJJSDiEs6k5nYFBEZJYngeZjLSEaIs/n/OEvJTc3miFxoc28vhBOaMnK9dc7BB7+PdFPAJ6kSg==}
+    engines: {node: '>=18.0.0'}
     peerDependencies:
-      '@aws-sdk/client-dynamodb': ^3.0.0
+      '@aws-sdk/client-dynamodb': ^3.862.0
     dependencies:
       '@aws-sdk/client-dynamodb': 3.862.0
-      '@aws-sdk/util-dynamodb': 3.417.0(@aws-sdk/client-dynamodb@3.862.0)
-      tslib: 2.6.2
+      '@aws-sdk/core': 3.862.0
+      '@aws-sdk/util-dynamodb': 3.862.0(@aws-sdk/client-dynamodb@3.862.0)
+      '@smithy/core': 3.8.0
+      '@smithy/smithy-client': 4.4.10
+      '@smithy/types': 4.3.2
+      tslib: 2.8.1
     dev: false
 
   /@aws-sdk/middleware-endpoint-discovery@3.862.0:
@@ -437,14 +441,14 @@ packages:
       tslib: 2.8.1
     dev: false
 
-  /@aws-sdk/util-dynamodb@3.417.0(@aws-sdk/client-dynamodb@3.862.0):
-    resolution: {integrity: sha512-IWB2aoRdZSqlwZPjFisXpOZVKNaKIwbOK77LhlY8WYp3ZNYJITFKzKxYmuWuCYkeSO3aGM8gp3JzofTkmiQhEw==}
-    engines: {node: '>=14.0.0'}
+  /@aws-sdk/util-dynamodb@3.862.0(@aws-sdk/client-dynamodb@3.862.0):
+    resolution: {integrity: sha512-pYydaBGvj0puxM0PjIzEDP7QQOkBf86ZUJDSoQpgSzfiToPukVedqnqysA/U1unNt6FijK81skUc8FK3iM6big==}
+    engines: {node: '>=18.0.0'}
     peerDependencies:
-      '@aws-sdk/client-dynamodb': ^3.0.0
+      '@aws-sdk/client-dynamodb': ^3.862.0
     dependencies:
       '@aws-sdk/client-dynamodb': 3.862.0
-      tslib: 2.6.2
+      tslib: 2.8.1
     dev: false
 
   /@aws-sdk/util-endpoints@3.862.0:
@@ -1033,10 +1037,6 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       has-flag: 4.0.0
-    dev: false
-
-  /tslib@2.6.2:
-    resolution: {integrity: sha512-AEYxH93jGFPn/a2iVAwW87VuUIkR1FVUKB77NwMF7nBTDkDrrT/Hpt/IrCJ0QXhW27jTBDcf5ZY7w6RiqTMw2Q==}
     dev: false
 
   /tslib@2.8.1:
