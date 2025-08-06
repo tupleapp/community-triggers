@@ -8,26 +8,31 @@ const {
 
 const configSchema = z.object({
   name: z.string({
-    required_error: "`name` must be provided in your `config.json` file.",
-    invalid_type_error:
-      "The `name` in your `config.json` file must be a string.",
+    error: (issue) => {
+      if (issue.input === undefined) {
+        return "`name` must be provided in your `config.json` file.";
+      }
+      return "The `name` in your `config.json` file must be a string.";
+    },
   }),
   description: z.string({
-    required_error:
-      "`description` must be provided in your `config.json` file.",
-    invalid_type_error:
-      "The `description` in your `config.json` file must be a string.",
+    error: (issue) => {
+      if (issue.input === undefined) {
+        return "`description` must be provided in your `config.json` file.";
+      }
+      return "The `description` in your `config.json` file must be a string.";
+    },
   }),
   platforms: z
     .enum(AVAILABLE_PLATFORMS, {
       errorMap: (issue, ctx) => {
-        if (issue.code === z.ZodIssueCode.invalid_type) {
+        if (issue.code === "invalid_type") {
           return {
             message: "`platforms` must be provided in your `config.json` file.",
           };
         }
 
-        if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+        if (issue.code === "invalid_enum_value") {
           return {
             message: `The platform \`${
               issue.received
@@ -47,19 +52,19 @@ const configSchema = z.object({
     }),
   language: z.enum(AVAILABLE_LANGUAGES, {
     errorMap: (issue, ctx) => {
-      if (issue.code === z.ZodIssueCode.invalid_type) {
+      if (issue.code === "invalid_type") {
         return {
           message: "`language` must be provided in your `config.json` file.",
         };
       }
 
-      if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+      if (issue.code === "invalid_enum_value") {
         return {
           message: `The language \`${
             issue.received
           }\` in your \`config.json\` file is not valid. Valid languages are: ${AVAILABLE_LANGUAGES.map(
-            (c) => `\`${c}\``
-          ).join(", ")}.`,
+              (c) => `\`${c}\``
+            ).join(", ")}.`,
         };
       }
 

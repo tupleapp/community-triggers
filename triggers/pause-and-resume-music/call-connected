@@ -1,0 +1,13 @@
+#!/usr/bin/env osascript
+
+set flagFile to (path to temporary items folder as text) & "music_paused_by_script.txt"
+
+if application "Music" is running then
+    tell application "Music"
+        if player state is playing then
+            pause
+            -- Write a flag file to indicate this script caused the pause
+            do shell script "echo 'paused' > " & quoted form of POSIX path of flagFile
+        end if
+    end tell
+end if
