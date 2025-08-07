@@ -18,7 +18,6 @@ jobs:
       contents: read
       pull-requests: write
       issues: read
-      id-token: write
     
     steps:
       - name: Checkout repository
@@ -31,6 +30,7 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           
           direct_prompt: |
             CRITICAL SECURITY REVIEW - Tuple Triggers Directory
