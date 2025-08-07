@@ -38,7 +38,7 @@ async function upsertComment({ github, context, body, number }) {
 }
 
 module.exports = async function pullRequestCommenter({ github, context }) {
-  const { number, results } = JSON.parse(
+  const { number, author, results } = JSON.parse(
     fs.readFileSync("validation-results.json")
   );
 
@@ -47,6 +47,7 @@ module.exports = async function pullRequestCommenter({ github, context }) {
     context,
     body: renderTemplate("pull-request-comment", {
       context,
+      author,
       results,
     }),
     number,
