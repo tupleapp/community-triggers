@@ -16,7 +16,11 @@ module.exports = async function validatePullRequest({ github, context, core }) {
   }));
 
   const output = JSON.stringify(
-    { number: context.issue.number, results: validationResults },
+    { 
+      number: context.issue.number, 
+      author: context.payload.pull_request.user.login,
+      results: validationResults 
+    },
     null,
     2
   );

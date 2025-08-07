@@ -1,4 +1,4 @@
-Thanks for your contribution, @<%= context.payload.sender.login %>! :tada:
+Thanks for your contribution, @<%= author %>! :tada:
 
 <% if (results.length === 1) { %>
   We've done some automated sense checks on your trigger, `<%= results[0].trigger %>`. <% if (results[0].success) { -%>All looks great! Someone from Tuple will now manually review your trigger's code and get back to you.<%_ } else { -%>It seems there might be some more work to do:<%_ } -%>
