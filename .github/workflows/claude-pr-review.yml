@@ -1,0 +1,34 @@
+name: Automated reviews
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  code-review:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Auto review PR
+        uses: anthropics/claude-code-action@main
+        with:
+          direct_prompt: |
+            Please review this PR. Look at the changes and provide thoughtful feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Suggestions for improvements
+
+            This repository is a collection of scripts that Tuple users can install onto their local machines in an extremely permissive environment.
+            Your review should be defensive in nature, focusing intently on any potential security risks that these submissions or changes could pose to the repository or downstream users.
+
+            Be constructive and specific in your feedback. Give inline comments where applicable.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_tools: "mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
