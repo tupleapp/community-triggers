@@ -18,8 +18,8 @@ importers:
         specifier: ^3.1.10
         version: 3.1.10
       zod:
-        specifier: ^4.0.17
-        version: 4.0.17
+        specifier: ^4.1.5
+        version: 4.1.5
 
 packages:
 
@@ -399,8 +399,8 @@ packages:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
     hasBin: true
 
-  zod@4.0.17:
-    resolution: {integrity: sha512-1PHjlYRevNxxdy2JZ8JcNAw7rX8V9P1AKkP+x/xZfxB0K5FYfuV+Ug6P/6NVSR2jHQ+FzDDoDHS04nYUsOIyLQ==}
+  zod@4.1.5:
+    resolution: {integrity: sha512-rcUUZqlLJgBC33IT3PNMgsCq6TzLQEG/Ei/KTCU0PedSWRMAXoOUN+4t/0H+Q8bdnLPdqUYnvboJT0bn/229qg==}
 
 snapshots:
 
@@ -1172,4 +1172,4 @@ snapshots:
 
   uuid@9.0.1: {}
 
-  zod@4.0.17: {}
+  zod@4.1.5: {}
