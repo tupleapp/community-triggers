@@ -10,7 +10,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
@@ -18,7 +18,7 @@ jobs:
           version: 8
           run_install: |
             cwd: util
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           script: |
             const validateTriggers = require("./util/validate-triggers.js");
@@ -32,7 +32,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
@@ -40,7 +40,7 @@ jobs:
           version: 8
           run_install: |
             cwd: util
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           script: |
             const collectChangedIcons = require("./util/collect-changed-trigger-icons.js");
@@ -59,7 +59,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
@@ -67,7 +67,7 @@ jobs:
           version: 8
           run_install: |
             cwd: util
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           script: |
             const archiveChangedTriggers = require("./util/archive-changed-triggers.js");
@@ -77,7 +77,7 @@ jobs:
           role-to-assume: ${{secrets.AWS_ROLE_ARN}}
           aws-region: us-east-2
       - run: aws s3 sync ${{runner.temp}}/archives s3://tuple-hooks-production/archives
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           script: |
             const uploadMetadata = require("./util/upload-metadata.js");

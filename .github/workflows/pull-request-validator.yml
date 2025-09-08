@@ -11,7 +11,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - uses: pnpm/action-setup@v4
@@ -19,7 +19,7 @@ jobs:
           version: 8
           run_install: |
             cwd: util
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           script: |
             const validate = require("./util/pull-request-validator.js");
