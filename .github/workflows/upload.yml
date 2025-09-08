@@ -45,7 +45,7 @@ jobs:
           script: |
             const collectChangedIcons = require("./util/collect-changed-trigger-icons.js");
             await collectChangedIcons({ github, context });
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{secrets.AWS_ROLE_ARN}}
           aws-region: us-east-2
@@ -72,7 +72,7 @@ jobs:
           script: |
             const archiveChangedTriggers = require("./util/archive-changed-triggers.js");
             await archiveChangedTriggers({ github, context });
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{secrets.AWS_ROLE_ARN}}
           aws-region: us-east-2
