@@ -1,0 +1,6 @@
+{
+  "name": "Join alert",
+  "description": "Sends a notification when a specific person joins a Tuple room.",
+  "platforms": ["macos", "linux", "windows"],
+  "language": "python"
+}
