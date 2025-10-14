@@ -11,9 +11,11 @@ import sys
 import importlib.util
 
 # Import the module under test (handling hyphenated filename)
-spec = importlib.util.spec_from_file_location("room_joined", "room-joined.py")
-room_joined = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(room_joined)
+import types
+module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "room-joined")
+room_joined = types.ModuleType("room_joined")
+with open(module_path, 'r') as f:
+    exec(f.read(), room_joined.__dict__)
 
 
 class TestNameMatches(unittest.TestCase):
