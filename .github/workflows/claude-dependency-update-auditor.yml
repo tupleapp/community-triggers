@@ -1,0 +1,11 @@
+  name: Dependency Update Review
+  on:
+    schedule:
+      - cron: '0 9 * * *'
+    workflow_dispatch:
+
+  jobs:
+    dependabot-review:
+      uses: tupleapp/shared-actions/.github/workflows/claude-dependabot-review.yml@main
+      secrets:
+        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
