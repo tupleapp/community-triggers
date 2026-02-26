@@ -1,0 +1,6 @@
+{
+  "name": "Dad Joke Greeter",
+  "description": "Greet participants with a dad joke when they join your room — spoken aloud so everyone on the call hears it.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
