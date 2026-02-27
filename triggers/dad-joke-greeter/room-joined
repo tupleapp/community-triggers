@@ -17,10 +17,8 @@ STATE_DIR="$HOME/.tuple/.state/dad-joke-greeter"
 MY_ROOM_FILE="$STATE_DIR/my-room"
 TRACKED_ROOMS_FILE="$HOME/.tuple/tracked-rooms"
 
-# Optional: set TUPLE_DAD_JOKES_ENABLED=0 to disable without removing the trigger
-if [[ "${TUPLE_DAD_JOKES_ENABLED:-1}" == "0" ]]; then
-  exit 0
-fi
+# Optional: touch ~/.tuple/.dad-jokes-disabled to disable without removing the trigger
+[[ ! -f "$HOME/.tuple/.dad-jokes-disabled" ]] || exit 0
 
 is_self="${TUPLE_TRIGGER_IS_SELF:-false}"
 room_name="${TUPLE_TRIGGER_ROOM_NAME:-}"
@@ -72,8 +70,8 @@ full_text="${greeting} ${joke}"
 # Play to local speakers and BlackHole in parallel so both you and
 # remote participants hear the joke. Falls back gracefully if either
 # device is missing.
-say -a "$SPEAKER_DEVICE" -- "$full_text" 2>/dev/null &
-say -a "$BLACKHOLE_DEVICE" -- "$full_text" 2>/dev/null &
+say -a "$SPEAKER_DEVICE" -- "$full_text" 2>> "$HOME/.tuple/.state/dad-joke-greeter/say-errors.log" &
+say -a "$BLACKHOLE_DEVICE" -- "$full_text" 2>> "$HOME/.tuple/.state/dad-joke-greeter/say-errors.log" &
 wait
 
 echo "$(date -Iseconds) [dad-joke-greeter] Told joke to ${joiner}: ${joke}"
