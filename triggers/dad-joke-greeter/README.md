@@ -4,6 +4,16 @@ Greet participants with a random dad joke when they join your Tuple room — spo
 
 Jokes are fetched from [icanhazdadjoke.com](https://icanhazdadjoke.com/) and played through macOS text-to-speech. Audio is routed to both your local speakers and a virtual audio device so remote participants hear the joke through Tuple.
 
+## Installation
+
+Copy the trigger into your Tuple triggers directory:
+
+```bash
+cp -r triggers/dad-joke-greeter ~/.tuple/triggers/dad-joke-greeter
+```
+
+> If you installed this trigger from the [Tuple Triggers Directory](https://tuple.app/triggers), it's already in place — skip to Quick Setup.
+
 ## How it works
 
 - When **you** join a room, the trigger records which room you're in (no joke yet — you're alone).
@@ -25,6 +35,7 @@ The script will walk you through each step interactively. If you prefer to set t
 - macOS (uses `say` for text-to-speech)
 - [jq](https://jqlang.github.io/jq/) (`brew install jq`)
 - [BlackHole 2ch](https://existential.audio/blackhole/) (free virtual audio driver)
+> **Note:** After installing BlackHole, you may need to restart your Mac (or log out and back in) before it appears as an audio device.
 
 ## Manual audio setup
 
@@ -55,18 +66,14 @@ In Tuple, go to **Preferences → Audio → Input Device** and select **"BH + Mi
 
 Now Tuple receives both your voice (real mic) and the joke audio (BlackHole).
 
-### 4. Adjust the speaker device name
+### 4. Speaker device name
 
-In the `room-joined` script, update `SPEAKER_DEVICE` to match your system. Common values:
+During setup, the script automatically detects your audio output devices and writes the selected device into the `room-joined` script. No manual editing needed.
 
-- `"MacBook Pro Speakers"`
-- `"MacBook Air Speakers"`
-- `"External Speakers"`
-
-You can find your device name with:
+If you skipped setup or need to change it later, update `SPEAKER_DEVICE` in the `room-joined` script. Find your device name with:
 
 ```bash
-say -a '?' 2>&1 | head -20
+system_profiler SPAudioDataType | grep -A2 "Output Channels" | grep -v "Output Channels"
 ```
 
 ## Configuration
@@ -75,7 +82,6 @@ say -a '?' 2>&1 | head -20
 |----------|---------|-------------|
 | `SPEAKER_DEVICE` | `MacBook Pro Speakers` | Local speaker device name |
 | `BLACKHOLE_DEVICE` | `BlackHole 2ch` | Virtual audio device name |
-| `TUPLE_DAD_JOKES_ENABLED` | `1` | Set to `0` to disable |
 
 ## Limiting to specific rooms
 
@@ -85,16 +91,25 @@ By default, jokes trigger in any room you join. To restrict to specific rooms, c
 Engineering
 Design Crit
 ```
+> **Room names are case-sensitive and must match exactly.** Use the room name as it appears in Tuple.
 
 When this file exists, only rooms listed in it will trigger jokes. Remove the file to go back to all rooms.
 
 ## Disabling temporarily
 
+Create a disable file to pause jokes without removing the trigger:
+
 ```bash
-export TUPLE_DAD_JOKES_ENABLED=0
+# Disable
+touch ~/.tuple/.dad-jokes-disabled
+
+# Re-enable
+rm ~/.tuple/.dad-jokes-disabled
 ```
 
-Or remove/rename the trigger files in `~/.tuple/triggers/dad-joke-greeter/`.
+> Tuple spawns trigger scripts as subprocesses, so environment variables set in your terminal don't propagate. The touch-file approach works reliably regardless of how the script is launched.
+
+Alternatively, remove or rename the trigger files in `~/.tuple/triggers/dad-joke-greeter/`.
 
 ## Known limitations
 
