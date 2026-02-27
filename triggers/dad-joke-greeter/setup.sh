@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2059  # ANSI colour vars in printf format strings are intentional
 # Dad Joke Greeter — setup helper
 #
 # Validates prerequisites and walks you through the one-time audio setup
 # so remote Tuple participants can hear the jokes.
 set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -36,6 +38,8 @@ if system_profiler SPAudioDataType 2>/dev/null | grep -q "BlackHole 2ch"; then
 else
   fail "BlackHole 2ch not found — install with: brew install blackhole-2ch"
   errors=$((errors + 1))
+  warn "If you just installed BlackHole, you may need to restart your Mac (or log out"
+  warn "and back in) before it appears as an audio device. Then re-run this script."
 fi
 
 # curl
@@ -57,7 +61,7 @@ step "Checking for aggregate audio device..."
 
 DEVICE_NAME="BH + Mic Input"
 
-if system_profiler SPAudioDataType 2>/dev/null | grep -q "$DEVICE_NAME"; then
+if system_profiler SPAudioDataType 2>/dev/null | grep -qi "$DEVICE_NAME"; then
   pass "\"$DEVICE_NAME\" aggregate device exists"
 else
   warn "\"$DEVICE_NAME\" not found — let's create it"
@@ -90,7 +94,11 @@ else
     while [[ -z "$mic_choice" ]]; do
       read -rp "Select your microphone [1-${#mics[@]}]: " pick
       if [[ "$pick" =~ ^[0-9]+$ ]] && [[ "$pick" -ge 1 ]] && [[ "$pick" -le ${#mics[@]} ]]; then
-        mic_choice="${mics[$((pick - 1))]}"
+        candidate="${mics[$((pick - 1))]}"
+        read -rp "Use \"$candidate\"? [Y/n] " confirm
+        if [[ -z "$confirm" || "$confirm" =~ ^[Yy] ]]; then
+          mic_choice="$candidate"
+        fi
       else
         printf "  ${RED}Invalid choice. Enter a number between 1 and %d.${RESET}\n" "${#mics[@]}"
       fi
@@ -98,7 +106,7 @@ else
     pass "Using microphone: \"$mic_choice\""
   fi
 
-  read -rp "Press Enter to open Audio MIDI Setup..."
+  read -rp "Press Enter to open Audio MIDI Setup (instructions will follow)..."
   open -a "Audio MIDI Setup"
 
   printf "\n${BOLD}Follow these steps in Audio MIDI Setup:${RESET}\n"
@@ -117,10 +125,12 @@ else
 
   read -rp "Press Enter once you've created the device..."
 
-  if system_profiler SPAudioDataType 2>/dev/null | grep -q "$DEVICE_NAME"; then
+  if system_profiler SPAudioDataType 2>/dev/null | grep -qi "$DEVICE_NAME"; then
     pass "\"$DEVICE_NAME\" created successfully"
   else
-    fail "\"$DEVICE_NAME\" still not found — check the name matches exactly"
+    fail "The device \"$DEVICE_NAME\" was not found."
+    warn "Make sure you: (1) created it in Audio MIDI Setup, (2) named it exactly"
+    warn "\"$DEVICE_NAME\", (3) clicked Done and closed the dialog."
     errors=$((errors + 1))
   fi
 fi
@@ -131,30 +141,51 @@ step "Tuple configuration..."
 
 printf "\n  Set Tuple's audio input to the aggregate device:\n"
 printf "  ${BOLD}Tuple → Preferences → Audio → Input Device → \"$DEVICE_NAME\"${RESET}\n\n"
+read -rp "Press Enter once configured (or if already done)..."
 
 # ── Speaker device ─────────────────────────────────────────────────────
 
 step "Detecting speaker device..."
 
-# Try to find the most likely speaker device
-speaker=""
-while IFS= read -r line; do
-  case "$line" in
-    *"MacBook Pro Speakers"*)  speaker="MacBook Pro Speakers" ;;
-    *"MacBook Air Speakers"*)  speaker="MacBook Air Speakers" ;;
-    *"External Speakers"*)     speaker="External Speakers" ;;
+# Enumerate audio output devices dynamically
+DETECTED_SPEAKER=""
+output_devices=()
+while IFS= read -r dev; do
+  # Skip BlackHole, aggregate, and Zoom virtual devices
+  case "$dev" in
+    *BlackHole*|*"$DEVICE_NAME"*|*ZoomAudio*) continue ;;
   esac
-done < <(system_profiler SPAudioDataType 2>/dev/null)
+  output_devices+=("$dev")
+done < <(
+  system_profiler SPAudioDataType 2>/dev/null \
+    | grep -B2 "Output Channels" \
+    | grep -v "Output Channels" \
+    | grep -v "^--$" \
+    | sed 's/^ *//;s/:$//' \
+    | grep -v '^$'
+)
 
-if [[ -n "$speaker" ]]; then
-  pass "Found speaker device: \"$speaker\""
-  printf "\n  Make sure ${BOLD}SPEAKER_DEVICE${RESET} in the room-joined script is set to:\n"
-  printf "  ${BOLD}SPEAKER_DEVICE=\"%s\"${RESET}\n" "$speaker"
+if [[ ${#output_devices[@]} -eq 0 ]]; then
+  warn "Could not enumerate audio output devices."
 else
-  warn "Could not auto-detect speaker device"
-  printf "\n  Run this to list available devices:\n"
-  printf "  ${BOLD}say -a '?' 2>&1 | head -20${RESET}\n"
-  printf "\n  Then update SPEAKER_DEVICE in the room-joined script.\n"
+  echo "Available audio output devices:"
+  for i in "${!output_devices[@]}"; do
+    printf "  %d) %s\n" "$((i+1))" "${output_devices[$i]}"
+  done
+  printf "  0) Skip (set manually later)\n"
+  read -rp "Select speaker device [0-${#output_devices[@]}]: " speaker_choice
+  if [[ "$speaker_choice" =~ ^[1-9][0-9]*$ ]] && [[ "$speaker_choice" -le "${#output_devices[@]}" ]]; then
+    DETECTED_SPEAKER="${output_devices[$((speaker_choice-1))]}"
+  fi
+fi
+
+if [[ -n "$DETECTED_SPEAKER" ]]; then
+  sed -i '' "s|^SPEAKER_DEVICE=.*|SPEAKER_DEVICE='${DETECTED_SPEAKER}'|" "$SCRIPT_DIR/room-joined"
+  pass "Updated SPEAKER_DEVICE in room-joined to: ${DETECTED_SPEAKER}"
+else
+  warn "SPEAKER_DEVICE not set. To configure manually, edit room-joined and set:"
+  warn "  SPEAKER_DEVICE='Your Device Name'"
+  warn "Find your device name with: say -a '?' 2>&1"
 fi
 
 # ── API test ───────────────────────────────────────────────────────────
