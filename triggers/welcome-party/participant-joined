@@ -3,9 +3,7 @@
 # THE MOST OBNOXIOUS WELCOME TRIGGER EVER CREATED
 # Xavier (Dominating, Metallic Announcer) + ElevenLabs v3 audio tags.
 
-# Tuple triggers don't inherit your shell environment.
-# Source the file where your ELEVENLABS_API_KEY is set:
-# [[ -f "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
+[[ -f "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
 
 NAME="${TUPLE_TRIGGER_FULL_NAME:-A Mystery Legend}"
 FIRST_NAME="${NAME%% *}"
@@ -20,8 +18,8 @@ MODEL="eleven_v3"
 
 mkdir -p "${CACHE_DIR}"
 
-TEMP_HTML=$(mktemp /tmp/tuple-welcome-XXXXXX.html)
-trap 'sleep 1; rm -f "${TEMP_HTML}"' EXIT
+TEMP_HTML="$(mktemp /tmp/tuple-welcome-XXXXXX).html"
+trap 'sleep 1; rm -f "${TEMP_HTML}" "${TEMP_HTML%.html}"' EXIT
 
 elevenlabs_generate() {
   local text="$1"
@@ -110,21 +108,13 @@ with open(sys.argv[5], 'w') as f:
     f.write(html)
 " "${NAME}" "${THEME}" "${CLOSE_AFTER}" "${CONFETTI_HTML}" "${TEMP_HTML}"
 
-open "${TEMP_HTML}"
+# Open a native WebKit window (no browser needed, closes itself)
+"${TRIGGER_DIR}/webview" "${TEMP_HTML}" "${CLOSE_AFTER}" &
+WEBVIEW_PID=$!
+
 afplay "${SFX_FILE}" &
 if [[ -n "${VOICE_FILE}" ]]; then
   afplay "${VOICE_FILE}" &
 fi
 wait
-
-# Close the browser tab (window.close() doesn't work for non-script-opened tabs)
-osascript -e "
-  tell application \"System Events\"
-    set frontApp to name of first application process whose frontmost is true
-  end tell
-  if frontApp is \"Safari\" then
-    tell application \"Safari\" to close current tab of front window
-  else if frontApp is \"Google Chrome\" then
-    tell application \"Google Chrome\" to close active tab of front window
-  end if
-" 2>/dev/null &
+wait $WEBVIEW_PID 2>/dev/null
