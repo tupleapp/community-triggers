@@ -3,6 +3,10 @@
 # THE MOST OBNOXIOUS WELCOME TRIGGER EVER CREATED
 # Xavier (Dominating, Metallic Announcer) + ElevenLabs v3 audio tags.
 
+# Tuple triggers don't inherit your shell environment.
+# Source the file where your ELEVENLABS_API_KEY is set:
+# [[ -f "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
+
 NAME="${TUPLE_TRIGGER_FULL_NAME:-A Mystery Legend}"
 FIRST_NAME="${NAME%% *}"
 TRIGGER_DIR="$(cd "$(dirname "$0")" && pwd)"
