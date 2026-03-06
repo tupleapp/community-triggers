@@ -1,0 +1,6 @@
+{
+  "name": "Welcome Party",
+  "description": "The most obnoxious welcome trigger ever created. Uses ElevenLabs v3 with Xavier (Dominating, Metallic Announcer) and audio tags to announce participants with randomly themed entrances — WWE, royal fanfare, sports arena, movie trailer, or DJ hype — complete with full-screen confetti, generated sound effects, and AI voice announcements. Requires an ElevenLabs API key.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
