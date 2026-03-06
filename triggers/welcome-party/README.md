@@ -34,7 +34,7 @@ Each theme also has matching emoji and subtitle in the confetti page.
 - Uses **ElevenLabs v3** with the **Xavier** voice (Dominating, Metallic Announcer) and audio tags like `[screaming]`, `[explosion]`, and `[crowd erupts]` for expressive delivery
 - Sound effects were generated with ElevenLabs Sound Effects and Music Generation APIs
 - Voice lines are **cached** by content hash in `audio-cache/` so repeat announcements are instant and don't burn API credits
-- The confetti HTML page auto-closes when the audio finishes
+- The confetti page fades out and the browser tab is closed via AppleScript when audio finishes
 
 ## Testing
 

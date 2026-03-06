@@ -148,9 +148,12 @@ function draw() {
 }
 draw();
 
-// Auto-close after duration set by trigger (default 15s)
+// Fade out before the trigger closes the tab
 const closeSec = window.TUPLE_CLOSE_AFTER || 15;
-setTimeout(() => window.close(), closeSec * 1000);
+setTimeout(() => {
+  document.body.style.transition = 'opacity 0.5s';
+  document.body.style.opacity = '0';
+}, (closeSec - 1) * 1000);
 </script>
 </body>
 </html>
