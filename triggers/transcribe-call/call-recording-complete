@@ -1,0 +1,335 @@
+#!/usr/bin/env python3
+"""
+Tuple Trigger: Transcribe Call
+Fires on call-recording-complete. Reads Opus files and events.jsonl from the
+artifacts directory, transcribes audio with whisper-cpp, and writes Summary.md.
+
+Requires:
+  1. brew install whisper-cpp
+  2. brew install ffmpeg
+  3. Download a GGML model: curl -L -o ~/.local/share/whisper-cpp/models/ggml-large-v3.bin \
+       https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
+
+Enable recording on staging:
+  defaults write app.tuple.staging callRecording true
+
+Environment variables (from Tuple):
+  TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY - Path to the call artifacts directory
+
+Optional environment variables:
+  WHISPER_MODEL - Path to a GGML model file (overrides default)
+  TRANSCRIPTION_OUTPUT_PATH - Path to write Summary.md (overrides default of artifacts dir)
+"""
+
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+# --- Configuration ---
+
+DEFAULT_MODEL = os.path.expanduser(
+    "~/.local/share/whisper-cpp/models/ggml-large-v3.bin"
+)
+WHISPER_CLI = "whisper-cli"
+
+
+# --- Parsing ---
+
+def parse_opus_filename(filename):
+    """Extract user ID and start timestamp from an Opus filename.
+
+    Format: {user_id}_{yyyy-MM-dd}_{HH-mm-ss.SSS}Z.opus
+    """
+    match = re.match(
+        r"(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2}\.\d{3})Z", filename
+    )
+    if not match:
+        return None, None
+    user_id = match.group(1)
+    time_str = match.group(3).replace("-", ":")
+    dt = datetime.strptime(
+        f"{match.group(2)}_{time_str}", "%Y-%m-%d_%H:%M:%S.%f"
+    ).replace(tzinfo=timezone.utc)
+    return user_id, dt
+
+
+# --- Data Loading ---
+
+def load_events(events_path):
+    """Load events from events.jsonl and extract participant names."""
+    events = []
+    user_names = {}
+
+    with open(events_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            entry = json.loads(line)
+            dt = datetime.fromisoformat(entry["time"])
+            category = entry["category"]
+            user = entry.get("user")
+
+            if category == "recording_started":
+                call_id_match = re.search(r"id: (.+)", entry["message"])
+                events.append((dt, "call_start", {
+                    "call_id": call_id_match.group(1) if call_id_match else "unknown"
+                }))
+
+            elif category == "recording_ended":
+                events.append((dt, "call_end", {}))
+
+            elif category == "user_joined" and user:
+                user_data = {
+                    "user_id": str(user["id"]),
+                    "name": user["full_name"],
+                    "email": user["email"],
+                }
+                user_names[str(user["id"])] = user["full_name"]
+
+                if "this user is" in entry["message"]:
+                    events.append((dt, "self_identified", user_data))
+                elif "peer already on call" in entry["message"]:
+                    events.append((dt, "peer_present", user_data))
+                else:
+                    events.append((dt, "peer_joined", user_data))
+
+            elif category == "user_left" and user:
+                user_data = {
+                    "user_id": str(user["id"]),
+                    "name": user["full_name"],
+                    "email": user["email"],
+                }
+                events.append((dt, "peer_left", user_data))
+
+    return events, user_names
+
+
+def convert_opus_to_wav(opus_path, output_dir):
+    """Convert an Opus file to WAV using ffmpeg. Returns the WAV path."""
+    stem = Path(opus_path).stem
+    wav_path = os.path.join(output_dir, f"{stem}.wav")
+
+    result = subprocess.run(
+        [
+            "ffmpeg", "-i", opus_path,
+            "-ar", "16000",
+            "-ac", "1",
+            "-y",
+            wav_path,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"  Warning: ffmpeg failed on {Path(opus_path).name}: {result.stderr.strip()}", file=sys.stderr)
+        return None
+
+    return wav_path
+
+
+def transcribe_wav(wav_path, model_path, output_dir):
+    """Run whisper-cli on a single WAV file, return the JSON transcription path."""
+    stem = Path(wav_path).stem
+    output_base = os.path.join(output_dir, stem)
+
+    result = subprocess.run(
+        [
+            WHISPER_CLI,
+            "-m", model_path,
+            "-l", "en",
+            "-np",
+            "-oj",
+            "-of", output_base,
+            wav_path,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"  Warning: whisper-cli failed on {Path(wav_path).name}: {result.stderr.strip()}", file=sys.stderr)
+        return None
+
+    json_path = output_base + ".json"
+    return json_path if os.path.exists(json_path) else None
+
+
+def load_transcription(json_path):
+    """Load a single whisper JSON and convert to absolute-timestamped segments."""
+    user_id, file_start_dt = parse_opus_filename(Path(json_path).stem)
+    if user_id is None:
+        return []
+
+    with open(json_path) as f:
+        data = json.load(f)
+
+    segments = []
+    for entry in data.get("transcription", []):
+        text = entry["text"].strip()
+        if not text:
+            continue
+        offset_ms = entry["offsets"]["from"]
+        abs_dt = file_start_dt + timedelta(milliseconds=offset_ms)
+        segments.append((abs_dt, "speech", {"user_id": user_id, "text": text}))
+
+    return segments
+
+
+# --- Markdown Generation ---
+
+def first_name(full_name):
+    return full_name.split()[0]
+
+
+def format_time(dt):
+    return dt.strftime("%H:%M:%S")
+
+
+def generate_markdown(events, transcriptions, user_names):
+    all_entries = sorted(events + transcriptions, key=lambda x: x[0])
+
+    lines = []
+
+    if all_entries:
+        call_date = all_entries[0][0].strftime("%Y-%m-%d")
+        call_time = all_entries[0][0].strftime("%H:%M")
+    else:
+        call_date = call_time = "Unknown"
+
+    lines.append(f"# Call Summary - {call_date} {call_time}")
+    lines.append("")
+
+    if user_names:
+        lines.append("## Participants")
+        lines.append("")
+        for uid, name in sorted(user_names.items(), key=lambda x: x[1]):
+            lines.append(f"- {name}")
+        lines.append("")
+
+    lines.append("## Timeline")
+    lines.append("")
+
+    peers_at_start = {
+        data["user_id"]
+        for _, event_type, data in all_entries
+        if event_type == "peer_present"
+    }
+
+    last_speaker = None
+    prev_was_event = False
+
+    for dt, event_type, data in all_entries:
+        time_str = format_time(dt)
+
+        if event_type == "peer_joined" and data["user_id"] in peers_at_start:
+            continue
+
+        if event_type in ("call_start", "call_end", "self_identified",
+                          "peer_present", "peer_joined", "peer_left"):
+            if not prev_was_event and lines and lines[-1] != "":
+                lines.append("")
+
+            label = {
+                "call_start": "Call started",
+                "call_end": "Call ended",
+                "self_identified": f"{data.get('name', '?')} joined",
+                "peer_present": f"{data.get('name', '?')} was already on the call",
+                "peer_joined": f"{data.get('name', '?')} joined",
+                "peer_left": f"{data.get('name', '?')} left",
+            }[event_type]
+
+            lines.append(f"*{time_str} -- {label}*")
+            prev_was_event = True
+            last_speaker = None
+
+        elif event_type == "speech":
+            if prev_was_event:
+                lines.append("")
+
+            speaker_name = user_names.get(data["user_id"], f"User{data['user_id']}")
+            speaker_first = first_name(speaker_name)
+            text = data["text"]
+
+            if speaker_first == last_speaker:
+                lines[-1] += " " + text
+            else:
+                lines.append(f"**{speaker_first}** [{time_str}]: {text}")
+
+            last_speaker = speaker_first
+            prev_was_event = False
+
+    return "\n".join(lines) + "\n"
+
+
+# --- Main ---
+
+def main():
+    recording_dir = os.environ.get("TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY")
+
+    if not recording_dir:
+        print("Error: TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY not set", file=sys.stderr)
+        sys.exit(1)
+
+    if not os.path.isdir(recording_dir):
+        print(f"Error: Recording directory not found: {recording_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    model_path = os.environ.get("WHISPER_MODEL", DEFAULT_MODEL)
+    if not os.path.exists(model_path):
+        print(f"Error: Whisper model not found: {model_path}", file=sys.stderr)
+        print("Install with: brew install whisper-cpp", file=sys.stderr)
+        print(f"Download model to: {model_path}", file=sys.stderr)
+        sys.exit(1)
+
+    events_path = os.path.join(recording_dir, "events.jsonl")
+    if not os.path.exists(events_path):
+        print(f"Error: events.jsonl not found in {recording_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    # Discover Opus files
+    opus_files = sorted(Path(recording_dir).glob("*.opus"))
+
+    if not opus_files:
+        print("No Opus files found, nothing to transcribe.", file=sys.stderr)
+        sys.exit(0)
+
+    print(f"Transcribing {len(opus_files)} audio segments...")
+
+    # Convert and transcribe into a temp directory
+    with tempfile.TemporaryDirectory(prefix="tuple-transcribe-") as tmp_dir:
+        all_segments = []
+
+        for i, opus in enumerate(opus_files, 1):
+            print(f"  [{i}/{len(opus_files)}] {opus.name}")
+
+            wav_path = convert_opus_to_wav(str(opus), tmp_dir)
+            if not wav_path:
+                continue
+
+            json_path = transcribe_wav(wav_path, model_path, tmp_dir)
+            if json_path:
+                all_segments.extend(load_transcription(json_path))
+
+        # Load events
+        events, user_names = load_events(events_path)
+
+        # Generate markdown
+        markdown = generate_markdown(events, all_segments, user_names)
+
+        output_dir = os.environ.get("TRANSCRIPTION_OUTPUT_PATH", recording_dir)
+        output_path = os.path.join(output_dir, "Summary.md")
+        with open(output_path, "w") as f:
+            f.write(markdown)
+
+        print(f"Written to {output_path}")
+        print(f"  {len(events)} events, {len(all_segments)} speech segments")
+
+if __name__ == "__main__":
+    main()
