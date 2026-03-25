@@ -10,8 +10,7 @@ Requires:
   3. Download a GGML model: curl -L -o ~/.local/share/whisper-cpp/models/ggml-large-v3.bin \
        https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
 
-Enable recording on staging:
-  defaults write app.tuple.staging callRecording true
+Reach out to us at `support@tuple.app` if you want us to enable call recording for you
 
 Environment variables (from Tuple):
   TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY - Path to the call artifacts directory
