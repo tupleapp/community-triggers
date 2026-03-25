@@ -35,7 +35,8 @@ from pathlib import Path
 DEFAULT_MODEL = os.path.expanduser(
     "~/.local/share/whisper-cpp/models/ggml-large-v3.bin"
 )
-WHISPER_CLI = "whisper-cli"
+FFMPEG_CLI = os.environ.get("FFMPEG_CLI", "/opt/homebrew/bin/ffmpeg")
+WHISPER_CLI = os.environ.get("WHISPER_CLI", "/opt/homebrew/bin/whisper-cli")
 
 
 # --- Parsing ---
@@ -71,7 +72,7 @@ def load_events(events_path):
             if not line:
                 continue
             entry = json.loads(line)
-            dt = datetime.fromisoformat(entry["time"])
+            dt = datetime.fromisoformat(entry["time"].replace("Z", "+00:00"))
             category = entry["category"]
             user = entry.get("user")
 
@@ -117,7 +118,7 @@ def convert_opus_to_wav(opus_path, output_dir):
 
     result = subprocess.run(
         [
-            "ffmpeg", "-i", opus_path,
+            FFMPEG_CLI, "-i", opus_path,
             "-ar", "16000",
             "-ac", "1",
             "-y",
