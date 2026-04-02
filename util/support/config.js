@@ -13,6 +13,7 @@ exports.AVAILABLE_TRIGGERS = [
   "webcam-share-ended",
   "participant-joined",
   "participant-left",
+  "call-recording-started",
   "call-recording-complete",
 ];
 exports.AVAILABLE_PLATFORMS = ["macos", "linux", "windows"];
