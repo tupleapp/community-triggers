@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# call-connected has no env vars beyond the universal CURRENT_USER_*, so we
+# derive prod/staging/dev from the trigger directory the script lives in.
+TRIGGER_DIR="$(cd "$(dirname "$0")" && pwd)"
+case "${TRIGGER_DIR}" in
+    *.tuplestaging/*) TUPLE_ENV="staging" ;;
+    *.tupledev/*)     TUPLE_ENV="dev" ;;
+    *)                TUPLE_ENV="prod" ;;
+esac
+
+# Kick off recording so call-recording-started fires and launches the sidekick.
+exec tuple --env "${TUPLE_ENV}" recording start

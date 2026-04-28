@@ -1,0 +1,6 @@
+{
+  "name": "Claude Call Sidekick",
+  "description": "Auto-records every call and launches a Claude Code sidekick that follows the conversation via the tuple CLI, polling transcript and shared-screen frames every 15 seconds.",
+  "platforms": ["macos"],
+  "language": "bash"
+}

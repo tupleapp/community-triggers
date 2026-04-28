@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TRIGGER_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# The call root holds every recording subdir for this call; we run Claude
+# right inside it so the session survives recording stop/restart and can
+# Read the raw transcriptions.jsonl/events.jsonl directly if it wants.
+CALL_ROOT="$(dirname "${TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY}")"
+CALL_ID="$(basename "${CALL_ROOT}")"
+SHORT_ID="${CALL_ID:0:8}"
+PID_FILE="${CALL_ROOT}/claude.pid"
+SHOT_PATH="${CALL_ROOT}/screen.jpg"
+SYSTEM_PROMPT_FILE="${CALL_ROOT}/system-prompt.md"
+COMMAND_FILE="/tmp/tuple-call-${SHORT_ID}.command"
+
+# Detect Tuple env from the artifacts path so the CLI scopes to the right daemon.
+case "${TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY}" in
+    */app.tuple.staging/*) TUPLE_ENV="staging" ;;
+    */app.tuple.dev/*)     TUPLE_ENV="dev" ;;
+    *)                     TUPLE_ENV="prod" ;;
+esac
+
+ENV_FLAG=""
+[ "${TUPLE_ENV}" != "prod" ] && ENV_FLAG=" --env ${TUPLE_ENV}"
+
+if [ "${TUPLE_ENV}" = "staging" ]; then
+    CONTEXT_FILE="${HOME}/.tuplestaging/context.md"
+else
+    CONTEXT_FILE="${HOME}/.tuple/context.md"
+fi
+
+# If a Claude session is still alive (recording was stopped and restarted),
+# leave it be — its /loop keeps polling the CLI for new transcript and frames.
+if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}" 2>/dev/null)" 2>/dev/null; then
+    exit 0
+fi
+
+# NEVER rm -rf CALL_ROOT — it holds the live recording artifacts.
+sed "s|{{ENV_FLAG}}|${ENV_FLAG}|g; s|{{SHOT_PATH}}|${SHOT_PATH}|g" \
+    "${TRIGGER_DIR}/system-prompt.md" > "${SYSTEM_PROMPT_FILE}"
+if [ -f "${CONTEXT_FILE}" ]; then
+    printf '\n---\n\n' >> "${SYSTEM_PROMPT_FILE}"
+    cat "${CONTEXT_FILE}" >> "${SYSTEM_PROMPT_FILE}"
+fi
+
+cat > "${COMMAND_FILE}" <<SCRIPT
+#!/bin/zsh -li
+printf '\e]0;Tuple Call ${SHORT_ID}\a'
+cd '${CALL_ROOT}'
+echo \$\$ > '${PID_FILE}'
+exec claude \\
+    --model opus \\
+    --effort low \\
+    --allowed-tools 'Bash(tuple:*)' Read \\
+    --append-system-prompt-file '${SYSTEM_PROMPT_FILE}' \\
+    '/loop 15s catch up on the call'
+SCRIPT
+chmod +x "${COMMAND_FILE}"
+open "${COMMAND_FILE}" &
