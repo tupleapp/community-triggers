@@ -1,6 +1,6 @@
 {
   "name": "Claude Call Sidekick",
-  "description": "Auto-records every call and launches a Claude Code sidekick that follows the conversation via the tuple CLI, polling transcript and shared-screen frames every 15 seconds.",
+  "description": "Auto-records every call and launches a Claude Code sidekick that follows the conversation via live transcript and event streams from the tuple CLI, with 10s batched flushes for low wake noise.",
   "platforms": ["macos"],
   "language": "bash"
 }

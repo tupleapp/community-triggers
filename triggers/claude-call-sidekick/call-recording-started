@@ -10,51 +10,72 @@ CALL_ROOT="$(dirname "${TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY}")"
 CALL_ID="$(basename "${CALL_ROOT}")"
 SHORT_ID="${CALL_ID:0:8}"
 PID_FILE="${CALL_ROOT}/claude.pid"
-SHOT_PATH="${CALL_ROOT}/screen.jpg"
 SYSTEM_PROMPT_FILE="${CALL_ROOT}/system-prompt.md"
+INITIAL_PROMPT_FILE="${CALL_ROOT}/initial-prompt.md"
 COMMAND_FILE="/tmp/tuple-call-${SHORT_ID}.command"
 
-# Detect Tuple env from the artifacts path so the CLI scopes to the right daemon.
-case "${TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY}" in
-    */app.tuple.staging/*) TUPLE_ENV="staging" ;;
-    */app.tuple.dev/*)     TUPLE_ENV="dev" ;;
-    *)                     TUPLE_ENV="prod" ;;
+# Find the daemon whose active call matches the call ID this trigger fired
+# for. Probes each env in turn rather than parsing the artifacts path so the
+# env→socket mapping stays owned by the CLI (api.HostForEnv), and so we pick
+# the right daemon when multiple envs are running simultaneously.
+TUPLE_ENV=""
+for candidate in prod staging dev; do
+    flag=()
+    [ "${candidate}" != "prod" ] && flag=(--env "${candidate}")
+    id=$(tuple "${flag[@]}" state --format json 2>/dev/null | jq -r '.current_call.id // ""')
+    if [ "${id}" = "${CALL_ID}" ]; then
+        TUPLE_ENV="${candidate}"
+        break
+    fi
+done
+if [ -z "${TUPLE_ENV}" ]; then
+    echo "tuple-call-sidekick: no daemon has call ${CALL_ID}" >&2
+    exit 1
+fi
+export TUPLE_ENV
+
+case "${TUPLE_ENV}" in
+    staging) CONTEXT_FILE="${HOME}/.tuplestaging/context.md" ;;
+    *)       CONTEXT_FILE="${HOME}/.tuple/context.md" ;;
 esac
 
-ENV_FLAG=""
-[ "${TUPLE_ENV}" != "prod" ] && ENV_FLAG=" --env ${TUPLE_ENV}"
-
-if [ "${TUPLE_ENV}" = "staging" ]; then
-    CONTEXT_FILE="${HOME}/.tuplestaging/context.md"
-else
-    CONTEXT_FILE="${HOME}/.tuple/context.md"
-fi
-
 # If a Claude session is still alive (recording was stopped and restarted),
-# leave it be — its /loop keeps polling the CLI for new transcript and frames.
+# leave it be — its existing subscriptions pick up the resumed transcript.
 if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}" 2>/dev/null)" 2>/dev/null; then
     exit 0
 fi
 
 # NEVER rm -rf CALL_ROOT — it holds the live recording artifacts.
-sed "s|{{ENV_FLAG}}|${ENV_FLAG}|g; s|{{SHOT_PATH}}|${SHOT_PATH}|g" \
-    "${TRIGGER_DIR}/system-prompt.md" > "${SYSTEM_PROMPT_FILE}"
+cp "${TRIGGER_DIR}/system-prompt.md" "${SYSTEM_PROMPT_FILE}"
 if [ -f "${CONTEXT_FILE}" ]; then
     printf '\n---\n\n' >> "${SYSTEM_PROMPT_FILE}"
     cat "${CONTEXT_FILE}" >> "${SYSTEM_PROMPT_FILE}"
 fi
+
+# Inline the recent events + transcript so the model has context when joining
+# mid-call (recording can stop and restart multiple times during a long call).
+# Cap at 100 lines each so we don't dump a 3-hour history into the opening turn.
+{
+    printf 'Your user just started (or resumed) recording a Tuple pair-programming call. Recording can be stopped and restarted mid-call, so this may be a checkpoint into an ongoing conversation rather than the start. Follow the setup steps in your system prompt, then return silently and wait for a wake signal.\n\n'
+    printf '## Recent lifecycle events (last 100)\n\n```\n'
+    tuple recording events 2>/dev/null | tail -100 || printf '(no events yet)\n'
+    printf '```\n\n## Recent transcript (last 100 lines)\n\n```\n'
+    tuple recording transcription 2>/dev/null | tail -100 || printf '(no transcript yet)\n'
+    printf '```\n'
+} > "${INITIAL_PROMPT_FILE}"
 
 cat > "${COMMAND_FILE}" <<SCRIPT
 #!/bin/zsh -li
 printf '\e]0;Tuple Call ${SHORT_ID}\a'
 cd '${CALL_ROOT}'
 echo \$\$ > '${PID_FILE}'
+export TUPLE_ENV='${TUPLE_ENV}'
 exec claude \\
     --model opus \\
     --effort low \\
-    --allowed-tools 'Bash(tuple:*)' Read \\
+    --allowed-tools 'Bash(tuple:*)' 'Bash(tail:*)' 'Bash(grep:*)' 'Bash(jq:*)' Read Monitor TaskList TaskStop ScheduleWakeup \\
     --append-system-prompt-file '${SYSTEM_PROMPT_FILE}' \\
-    '/loop 15s catch up on the call'
+    "\$(cat '${INITIAL_PROMPT_FILE}')"
 SCRIPT
 chmod +x "${COMMAND_FILE}"
 open "${COMMAND_FILE}" &
