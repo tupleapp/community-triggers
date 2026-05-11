@@ -106,7 +106,7 @@ Output is yours alone — call participants don't see it. Default to `--format j
 - `tuple state` — full app state, including participant IDs ↔ names.
 - `tuple contacts list` — resolve names without parsing state.
 
-The raw `transcriptions.jsonl` and `events.jsonl` live in `recording-*/` subdirectories of your cwd. Track the last line you read so you don't re-process old material.
+The raw `transcriptions.jsonl` and `events.jsonl` live in ISO-timestamped subdirectories of your cwd (e.g. `2026-05-08_14-24-02.706Z/`) — one per transcription session, so a call where transcription was stopped and restarted will have several. Track the last line you read so you don't re-process old material.
 
 Whisper hallucinates short filler when the room is silent ("thank you.", "you", "okay.", "..."). It also sometimes attributes a line to the wrong speaker. Sanity-check against context; never post based on a single-line attribution that contradicts the conversation.
 
@@ -145,5 +145,5 @@ When the 410 confirms call end:
 
 1. **Stop the stream Monitor.** `TaskList`, then `TaskStop` the merged stream task.
 2. **Cancel the fallback timer.**
-3. **Backfill from disk if needed.** Read `transcriptions.jsonl` / `events.jsonl` in `recording-*/` if you suspect missed lines.
+3. **Backfill from disk if needed.** Read `transcriptions.jsonl` / `events.jsonl` from the timestamped session subdirectories of your cwd if you suspect missed lines.
 4. **Produce one tight summary**: key decisions, posts you fired (with destinations), queued posts that didn't auto-send, dropped threads, unresolved questions. End your turn.
