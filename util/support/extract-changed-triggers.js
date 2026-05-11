@@ -1,3 +1,5 @@
+const { existsSync } = require("fs");
+
 module.exports = async function extractChangedTriggers({ github, context }) {
   let baseSha, headSha;
 
@@ -26,5 +28,5 @@ module.exports = async function extractChangedTriggers({ github, context }) {
         .filter((filename) => filename.startsWith("triggers/"))
         .map((filename) => filename.split("/")[1])
     ),
-  ];
+  ].filter((trigger) => existsSync(`triggers/${trigger}`));
 };

@@ -1,6 +1,0 @@
-{
-  "name": "Transcribe call",
-  "description": "Transcribe call recordings with whisper-cpp and generate a summary markdown file",
-  "platforms": ["macos"],
-  "language": "python"
-}
