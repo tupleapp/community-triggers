@@ -1,6 +1,6 @@
 {
-  "name": "Claude Call Sidekick",
-  "description": "Auto-records every call and launches a Claude Code sidekick that follows the conversation via live transcript and event streams from the tuple CLI, with 10s batched flushes for low wake noise.",
+  "name": "Claude Call Sidekick (Proactive)",
+  "description": "Auto-records every call and launches a Claude Code sidekick that proactively disseminates non-private call output to Slack, Linear, and Notion. Hard privacy gates keep it silent on personnel, comp, legal, and named-customer or named-employee discussions.",
   "platforms": ["macos"],
   "language": "bash"
 }
