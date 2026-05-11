@@ -13,6 +13,8 @@ exports.AVAILABLE_TRIGGERS = [
   "webcam-share-ended",
   "participant-joined",
   "participant-left",
+  "call-transcription-started",
+  "call-transcription-complete",
 ];
 exports.AVAILABLE_PLATFORMS = ["macos", "linux", "windows"];
 exports.AVAILABLE_LANGUAGES = [

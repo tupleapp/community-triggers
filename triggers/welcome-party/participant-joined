@@ -1,0 +1,120 @@
+#!/bin/bash
+#
+# THE MOST OBNOXIOUS WELCOME TRIGGER EVER CREATED
+# Xavier (Dominating, Metallic Announcer) + ElevenLabs v3 audio tags.
+
+[[ -f "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
+
+NAME="${TUPLE_TRIGGER_FULL_NAME:-A Mystery Legend}"
+FIRST_NAME="${NAME%% *}"
+TRIGGER_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFETTI_HTML="${TRIGGER_DIR}/confetti.html"
+SFX_DIR="${TRIGGER_DIR}/sfx"
+CACHE_DIR="${TRIGGER_DIR}/audio-cache"
+ELEVENLABS_API_KEY="${ELEVENLABS_API_KEY:-}"
+
+VOICE="YOq2y2Up4RgXP2HyXjE5"  # Xavier - Dominating, Metallic Announcer
+MODEL="eleven_v3"
+
+mkdir -p "${CACHE_DIR}"
+
+TEMP_HTML="$(mktemp /tmp/tuple-welcome-XXXXXX).html"
+trap 'sleep 1; rm -f "${TEMP_HTML}" "${TEMP_HTML%.html}"' EXIT
+
+elevenlabs_generate() {
+  local text="$1"
+  local cache_key
+  cache_key=$(echo "${VOICE}:${MODEL}:${text}" | md5 -q)
+  local cache_file="${CACHE_DIR}/${cache_key}.mp3"
+
+  if [[ ! -f "${cache_file}" ]]; then
+    if [[ -z "${ELEVENLABS_API_KEY}" ]]; then
+      return 1
+    fi
+
+    local payload
+    payload=$(python3 -c "import json,sys; print(json.dumps({'text': sys.argv[1], 'model_id': sys.argv[2], 'voice_settings': {'stability': 0.3, 'similarity_boost': 0.85, 'style': 0.7}}))" "${text}" "${MODEL}" 2>/dev/null)
+
+    local tmp_file="${cache_file}.tmp"
+    local http_code
+    http_code=$(curl -s "https://api.elevenlabs.io/v1/text-to-speech/${VOICE}" \
+      -H "xi-api-key: ${ELEVENLABS_API_KEY}" \
+      -H "Content-Type: application/json" \
+      -d "${payload}" \
+      --output "${tmp_file}" -w "%{http_code}" 2>/dev/null)
+
+    if [[ "${http_code}" == "200" ]] && [[ -s "${tmp_file}" ]] && file "${tmp_file}" 2>/dev/null | grep -q "Audio"; then
+      mv "${tmp_file}" "${cache_file}"
+    else
+      rm -f "${tmp_file}"
+      return 1
+    fi
+  fi
+
+  echo "${cache_file}"
+}
+
+get_duration() { afinfo "$1" 2>/dev/null | awk '/estimated duration/ {print $3}'; }
+
+THEMES=(wwe royal sports movie-trailer dj-hype)
+THEME="${TUPLE_TRIGGER_THEME_OVERRIDE:-${THEMES[$((RANDOM % ${#THEMES[@]}))]}}"
+
+case "${THEME}" in
+  wwe)
+    SFX_FILE="${SFX_DIR}/wwe-entrance.mp3"
+    VOICE_TEXT="[booming stadium announcer] THE UNDEFEATED! THE UNMATCHED! [explosion] ${NAME}!"
+    ;;
+  royal)
+    SFX_FILE="${SFX_DIR}/royal-fanfare.mp3"
+    VOICE_TEXT="[deep, regal herald] [trumpet fanfare] All rise! The magnificent ${NAME} has arrived! [pause] Let the proceedings commence!"
+    ;;
+  sports)
+    SFX_FILE="${SFX_DIR}/arena-crowd.mp3"
+    VOICE_TEXT="[stadium announcer, echoing] Number ONE in our hearts! [crowd chanting] [shouting] ${NAME}! [crowd erupts]"
+    ;;
+  movie-trailer)
+    SFX_FILE="${SFX_DIR}/movie-trailer.mp3"
+    VOICE_TEXT="[deep cinematic trailer voice, slow] In a world where calls are boring [pause] one person dared to join. [dramatic boom] ${NAME}."
+    ;;
+  dj-hype)
+    SFX_FILE="${SFX_DIR}/dj-hype.mp3"
+    VOICE_TEXT="[screaming] OH MY GOD! [air horn] ${FIRST_NAME} IS HERE! [explosion] THIS IS NOT A DRILL!"
+    ;;
+esac
+
+VOICE_FILE=$(elevenlabs_generate "${VOICE_TEXT}")
+
+SFX_DUR=$(get_duration "${SFX_FILE}")
+VOICE_DUR=0
+if [[ -n "${VOICE_FILE}" ]]; then
+  VOICE_DUR=$(get_duration "${VOICE_FILE}")
+fi
+[[ "${SFX_DUR}" =~ ^[0-9.]+$ ]] || SFX_DUR=10
+[[ "${VOICE_DUR}" =~ ^[0-9.]+$ ]] || VOICE_DUR=0
+CLOSE_AFTER=$(awk "BEGIN {d=$SFX_DUR; if ($VOICE_DUR>d) d=$VOICE_DUR; printf \"%d\", d+1}")
+
+# Inject name, theme, and close timer via python3 for safe escaping
+python3 -c "
+import sys, json
+name = sys.argv[1]
+theme = sys.argv[2]
+close_after = sys.argv[3]
+with open(sys.argv[4]) as f:
+    html = f.read()
+html = html.replace('window.TUPLE_NAME', json.dumps(name))
+html = html.replace('window.TUPLE_THEME', json.dumps(theme))
+html = html.replace('window.TUPLE_CLOSE_AFTER', close_after)
+with open(sys.argv[5], 'w') as f:
+    f.write(html)
+" "${NAME}" "${THEME}" "${CLOSE_AFTER}" "${CONFETTI_HTML}" "${TEMP_HTML}"
+
+# Open a native WebKit window (no browser needed, closes itself)
+"${TRIGGER_DIR}/webview" "${TEMP_HTML}" "${CLOSE_AFTER}" &
+WEBVIEW_PID=$!
+
+afplay "${SFX_FILE}" &
+if [[ -n "${VOICE_FILE}" ]]; then
+  afplay "${VOICE_FILE}" &
+fi
+wait
+wait $WEBVIEW_PID 2>/dev/null

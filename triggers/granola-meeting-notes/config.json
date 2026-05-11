@@ -1,0 +1,6 @@
+{
+  "name": "Granola Meeting Notes",
+  "description": "Opens a new Granola note when a Tuple call connects.",
+  "platforms": ["macos"],
+  "language": "bash"
+}
