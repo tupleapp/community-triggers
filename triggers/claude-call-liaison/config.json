@@ -1,6 +1,6 @@
 {
   "name": "Claude Call Liaison",
-  "description": "Launches a Claude Code session on every call that proactively posts non-private updates from the conversation to Slack, Linear, and Notion on your behalf. Hard privacy gates keep it silent on personnel, comp, legal, and named-customer or named-employee discussions.",
+  "description": "Launches a Claude Code session on every call that proactively posts non-private updates from the conversation to your team's chat, ticket tracker, and knowledge base on your behalf. Hard privacy gates keep it silent on personnel, comp, legal, and named-customer or named-employee discussions.",
   "platforms": ["macos"],
   "language": "bash"
 }

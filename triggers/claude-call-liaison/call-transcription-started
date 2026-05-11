@@ -87,7 +87,7 @@ fi
 # during a long call). Cap at 100 lines each so we don't dump a 3-hour
 # history into the opening turn.
 {
-    printf 'Your user just started (or resumed) transcription on a Tuple pair-programming call. You are the proactive liaison: monitor for non-private dissemination opportunities and post them to Slack, Linear, or Notion per your system prompt. Privacy gates override everything. Follow the setup steps, then return silently and wait for a wake signal.\n\n'
+    printf 'Your user just started (or resumed) transcription on a Tuple pair-programming call. You are the proactive liaison: monitor for non-private dissemination opportunities and post them to the destinations in your appended context per your system prompt. Privacy gates override everything. Follow the setup steps, then return silently and wait for a wake signal.\n\n'
     printf '## Recent lifecycle events (last 100)\n\n```\n'
     tuple transcription events 2>/dev/null | tail -100 || printf '(no events yet)\n'
     printf '```\n\n## Recent transcript (last 100 lines)\n\n```\n'
