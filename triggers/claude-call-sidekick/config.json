@@ -1,6 +1,0 @@
-{
-  "name": "Claude Call Sidekick (Proactive)",
-  "description": "Auto-records every call and launches a Claude Code sidekick that proactively disseminates non-private call output to Slack, Linear, and Notion. Hard privacy gates keep it silent on personnel, comp, legal, and named-customer or named-employee discussions.",
-  "platforms": ["macos"],
-  "language": "bash"
-}
