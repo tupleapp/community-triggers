@@ -2,7 +2,7 @@
 
 Automatically transcribe Tuple call recordings using [whisper-cpp](https://github.com/ggerganov/whisper.cpp) and generate a Markdown summary with a timeline of events and dialogue.
 
-Fires on the `call-recording-complete` event. Reads Opus audio files and `events.jsonl` from the call artifacts directory, transcribes each audio segment, and writes a `Summary.md` file.
+Fires on the `call-transcription-complete` event. Reads Opus audio files and `events.jsonl` from the call artifacts directory, transcribes each audio segment, and writes a `Summary.md` file.
 
 Reach out to us at `support@tuple.app` if you want us to enable local call recording for you or your team.
 

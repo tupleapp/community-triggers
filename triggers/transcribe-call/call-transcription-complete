@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Tuple Trigger: Transcribe Call
-Fires on call-recording-complete. Reads Opus files and events.jsonl from the
+Fires on call-transcription-complete. Reads Opus files and events.jsonl from the
 artifacts directory, transcribes audio with whisper-cpp, and writes Summary.md.
 
 Requires:
