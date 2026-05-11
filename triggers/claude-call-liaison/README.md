@@ -67,7 +67,7 @@ You're working with [Your Name], [role] at [company]. [One-liner about what they
 ## Posture
 
 - [Default to terse, factual, no exclamation points / emoji unless the channel uses them.]
-- [Other voice/style notes — e.g. "they sign Slack posts as 'sd' rather than their full name".]
+- [Other voice/style notes — e.g. "they sign chat posts with their initials rather than their full name".]
 - [What kinds of detail are always private regardless of category — e.g. "any conversation about a specific teammate's performance is gated, full stop".]
 ```
 
@@ -91,7 +91,7 @@ You're working with [Your Name], [role] at [company]. [One-liner about what they
 
 ### Ticket tracker (Linear / Jira / GitHub / Asana)
 
-- Teams and their prefixes: `PROJ-` is X team, `WEB-` is Y team, etc.
+- Teams and their prefixes: `FRONT-` is the frontend team, `BACK-` is the backend team, etc.
 - Active projects: [list with IDs if you have them, or just names]
 
 ### Knowledge base (Notion / Confluence / Coda)
