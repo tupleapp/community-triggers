@@ -16,7 +16,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v6
         with:
-          version: 8
+          version: 10.32.1
           run_install: |
             cwd: util
       - uses: actions/github-script@v8
