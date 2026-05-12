@@ -19,7 +19,7 @@ jobs:
           version: 10.32.1
           run_install: |
             cwd: util
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         with:
           script: |
             const validate = require("./util/pull-request-validator.js");
