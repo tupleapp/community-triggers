@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Dad Joke Greeter — room-joined trigger
+#
+# Fetches a random dad joke and speaks it aloud when someone joins the
+# room you're in. Audio is routed to both your speakers and BlackHole 2ch
+# so remote Tuple participants hear the joke too.
+#
+# See README.md for audio setup instructions.
+set -uo pipefail
+
+# Audio device for the virtual loopback into Tuple
+BLACKHOLE_DEVICE="BlackHole 2ch"
+
+API_URL="https://icanhazdadjoke.com/"
+STATE_DIR="$HOME/.tuple/.state/dad-joke-greeter"
+MY_ROOM_FILE="$STATE_DIR/my-room"
+TRACKED_ROOMS_FILE="$HOME/.tuple/tracked-rooms"
+
+# Optional: touch ~/.tuple/.dad-jokes-disabled to disable without removing the trigger
+[[ ! -f "$HOME/.tuple/.dad-jokes-disabled" ]] || exit 0
+
+is_self="${TUPLE_TRIGGER_IS_SELF:-false}"
+room_name="${TUPLE_TRIGGER_ROOM_NAME:-}"
+
+# If a tracked-rooms file exists, only trigger for rooms listed in it
+if [[ -f "$TRACKED_ROOMS_FILE" ]] && ! grep -qxF "$room_name" "$TRACKED_ROOMS_FILE"; then
+  exit 0
+fi
+
+mkdir -p "$STATE_DIR"
+
+if [[ "$is_self" == "true" ]]; then
+  # Record that we're in this room
+  printf '%s' "$room_name" > "$MY_ROOM_FILE"
+  # Don't tell a joke when joining alone — wait for someone else
+  exit 0
+fi
+
+# Someone else joined — only greet if we're in that same room
+if [[ ! -f "$MY_ROOM_FILE" ]]; then
+  exit 0
+fi
+my_room=$(<"$MY_ROOM_FILE")
+if [[ "$my_room" != "$room_name" ]]; then
+  exit 0
+fi
+
+# Fetch a random joke
+joke=$(
+  curl -sfS --connect-timeout 3 --max-time 5 \
+    -H "Accept: application/json" \
+    -H "User-Agent: TupleDadJokeGreeter/1.0 (https://github.com/tupleapp/community-triggers)" \
+    "$API_URL" | jq -r '.joke // empty'
+)
+
+if [[ -z "$joke" ]]; then
+  echo "$(date -Iseconds) [dad-joke-greeter] Failed to fetch joke" >&2
+  exit 1
+fi
+
+# Sanitize joiner name (strip control characters only)
+raw_joiner="${TUPLE_TRIGGER_FULL_NAME:-someone}"
+joiner="$(printf '%s' "$raw_joiner" | tr -d '[:cntrl:]')"
+joiner="${joiner:-someone}"
+
+greeting="${joiner} just joined. Here is a dad joke."
+full_text="${greeting} ${joke}"
+
+# Play to local speakers and BlackHole in parallel so both you and
+# remote participants hear the joke. Local say uses the system default
+# output; only BlackHole needs an explicit device.
+say -- "$full_text" 2>> "$STATE_DIR/say-errors.log" &
+say -a "$BLACKHOLE_DEVICE" -- "$full_text" 2>> "$STATE_DIR/say-errors.log" &
+wait
+
+echo "$(date -Iseconds) [dad-joke-greeter] Told joke to ${joiner}: ${joke}"

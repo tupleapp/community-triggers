@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Dad Joke Greeter — room-left trigger
+#
+# Clears room state when we leave so jokes stop firing.
+set -uo pipefail
+
+STATE_DIR="$HOME/.tuple/.state/dad-joke-greeter"
+MY_ROOM_FILE="$STATE_DIR/my-room"
+
+is_self="${TUPLE_TRIGGER_IS_SELF:-false}"
+
+if [[ "$is_self" == "true" ]] && [[ -f "$MY_ROOM_FILE" ]]; then
+  rm -f "$MY_ROOM_FILE"
+fi
