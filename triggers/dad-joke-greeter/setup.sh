@@ -5,7 +5,6 @@
 # Validates prerequisites and walks you through the one-time audio setup
 # so remote Tuple participants can hear the jokes.
 set -uo pipefail
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -142,51 +141,6 @@ step "Tuple configuration..."
 printf "\n  Set Tuple's audio input to the aggregate device:\n"
 printf "  ${BOLD}Tuple → Preferences → Audio → Input Device → \"$DEVICE_NAME\"${RESET}\n\n"
 read -rp "Press Enter once configured (or if already done)..."
-
-# ── Speaker device ─────────────────────────────────────────────────────
-
-step "Detecting speaker device..."
-
-# Enumerate audio output devices dynamically
-DETECTED_SPEAKER=""
-output_devices=()
-while IFS= read -r dev; do
-  # Skip BlackHole, aggregate, and Zoom virtual devices
-  case "$dev" in
-    *BlackHole*|*"$DEVICE_NAME"*|*ZoomAudio*) continue ;;
-  esac
-  output_devices+=("$dev")
-done < <(
-  system_profiler SPAudioDataType 2>/dev/null \
-    | grep -B2 "Output Channels" \
-    | grep -v "Output Channels" \
-    | grep -v "^--$" \
-    | sed 's/^ *//;s/:$//' \
-    | grep -v '^$'
-)
-
-if [[ ${#output_devices[@]} -eq 0 ]]; then
-  warn "Could not enumerate audio output devices."
-else
-  echo "Available audio output devices:"
-  for i in "${!output_devices[@]}"; do
-    printf "  %d) %s\n" "$((i+1))" "${output_devices[$i]}"
-  done
-  printf "  0) Skip (set manually later)\n"
-  read -rp "Select speaker device [0-${#output_devices[@]}]: " speaker_choice
-  if [[ "$speaker_choice" =~ ^[1-9][0-9]*$ ]] && [[ "$speaker_choice" -le "${#output_devices[@]}" ]]; then
-    DETECTED_SPEAKER="${output_devices[$((speaker_choice-1))]}"
-  fi
-fi
-
-if [[ -n "$DETECTED_SPEAKER" ]]; then
-  sed -i '' "s|^SPEAKER_DEVICE=.*|SPEAKER_DEVICE='${DETECTED_SPEAKER}'|" "$SCRIPT_DIR/room-joined"
-  pass "Updated SPEAKER_DEVICE in room-joined to: ${DETECTED_SPEAKER}"
-else
-  warn "SPEAKER_DEVICE not set. To configure manually, edit room-joined and set:"
-  warn "  SPEAKER_DEVICE='Your Device Name'"
-  warn "Find your device name with: say -a '?' 2>&1"
-fi
 
 # ── API test ───────────────────────────────────────────────────────────
 

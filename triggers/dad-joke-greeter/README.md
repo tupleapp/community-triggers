@@ -66,22 +66,17 @@ In Tuple, go to **Preferences → Audio → Input Device** and select **"BH + Mi
 
 Now Tuple receives both your voice (real mic) and the joke audio (BlackHole).
 
-### 4. Speaker device name
+### 4. Speaker output
 
-During setup, the script automatically detects your audio output devices and writes the selected device into the `room-joined` script. No manual editing needed.
-
-If you skipped setup or need to change it later, update `SPEAKER_DEVICE` in the `room-joined` script. Find your device name with:
-
-```bash
-system_profiler SPAudioDataType | grep -A2 "Output Channels" | grep -v "Output Channels"
-```
+Local speaker output uses the macOS system default — no configuration needed. The `say` command without an explicit device plays through whatever output you have selected in System Settings.
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SPEAKER_DEVICE` | `MacBook Pro Speakers` | Local speaker device name |
 | `BLACKHOLE_DEVICE` | `BlackHole 2ch` | Virtual audio device name |
+
+Local speaker output uses the system default — no configuration needed.
 
 ## Limiting to specific rooms
 
@@ -97,7 +92,7 @@ When this file exists, only rooms listed in it will trigger jokes. Remove the fi
 
 ## Disabling temporarily
 
-Create a disable file to pause jokes without removing the trigger:
+The simplest way to pause jokes without removing the trigger is a touch-file — Tuple spawns trigger scripts as subprocesses, so environment variables set in your terminal won't propagate, but a file on disk is always visible:
 
 ```bash
 # Disable
@@ -107,10 +102,9 @@ touch ~/.tuple/.dad-jokes-disabled
 rm ~/.tuple/.dad-jokes-disabled
 ```
 
-> Tuple spawns trigger scripts as subprocesses, so environment variables set in your terminal don't propagate. The touch-file approach works reliably regardless of how the script is launched.
-
 Alternatively, remove or rename the trigger files in `~/.tuple/triggers/dad-joke-greeter/`.
 
 ## Known limitations
 
 - **Switching microphones:** The aggregate audio device is configured with a specific mic. If you swap between multiple inputs throughout the day (e.g. AirPods, built-in mic, headset), you'll need to update the aggregate device in Audio MIDI Setup to use the new mic. A future version may automate this by detecting the current input and rebuilding the aggregate on the fly.
+- **Stale state after crash:** If Tuple crashes mid-call, the `room-left` trigger never fires and the state file that tracks which room you're in becomes stale. A subsequent join by someone else could trigger a joke even though you're no longer in the room. Rejoining any room clears this automatically.

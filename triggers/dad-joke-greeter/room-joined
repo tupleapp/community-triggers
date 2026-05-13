@@ -8,8 +8,7 @@
 # See README.md for audio setup instructions.
 set -uo pipefail
 
-# Audio devices — adjust to match your system
-SPEAKER_DEVICE="MacBook Pro Speakers"
+# Audio device for the virtual loopback into Tuple
 BLACKHOLE_DEVICE="BlackHole 2ch"
 
 API_URL="https://icanhazdadjoke.com/"
@@ -59,19 +58,19 @@ if [[ -z "$joke" ]]; then
   exit 1
 fi
 
-# Sanitize joiner name (letters and spaces only)
+# Sanitize joiner name (strip control characters only)
 raw_joiner="${TUPLE_TRIGGER_FULL_NAME:-someone}"
-joiner="$(printf '%s' "$raw_joiner" | tr -cd '[:alpha:] ')"
+joiner="$(printf '%s' "$raw_joiner" | tr -d '[:cntrl:]')"
 joiner="${joiner:-someone}"
 
 greeting="${joiner} just joined. Here is a dad joke."
 full_text="${greeting} ${joke}"
 
 # Play to local speakers and BlackHole in parallel so both you and
-# remote participants hear the joke. Falls back gracefully if either
-# device is missing.
-say -a "$SPEAKER_DEVICE" -- "$full_text" 2>> "$HOME/.tuple/.state/dad-joke-greeter/say-errors.log" &
-say -a "$BLACKHOLE_DEVICE" -- "$full_text" 2>> "$HOME/.tuple/.state/dad-joke-greeter/say-errors.log" &
+# remote participants hear the joke. Local say uses the system default
+# output; only BlackHole needs an explicit device.
+say -- "$full_text" 2>> "$STATE_DIR/say-errors.log" &
+say -a "$BLACKHOLE_DEVICE" -- "$full_text" 2>> "$STATE_DIR/say-errors.log" &
 wait
 
 echo "$(date -Iseconds) [dad-joke-greeter] Told joke to ${joiner}: ${joke}"
