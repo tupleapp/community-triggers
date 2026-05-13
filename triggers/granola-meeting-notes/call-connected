@@ -2,6 +2,5 @@
 #
 # Open a fresh Granola note when a Tuple call connects.
 # https://docs.tuple.app/triggers/api-reference#call-connected
-# https://docs.granola.ai/article/open-granola-via-url
 
 open "granola://new-document?creation_source=tuple"

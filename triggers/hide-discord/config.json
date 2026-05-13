@@ -1,6 +1,0 @@
-{
-  "name": "Hide Discord.app",
-  "description": "Automatically hide Discord.app when sharing your screen.",
-  "platforms": ["macos"],
-  "language": "applescript"
-}

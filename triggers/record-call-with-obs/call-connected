@@ -1,4 +1,4 @@
-#!/usr/local/bin/deno run --allow-env --allow-net
+#!/usr/bin/env -S deno run --allow-env --allow-net
 import OBSWebSocket from 'npm:obs-websocket-js';
 
 const obs = new OBSWebSocket();

@@ -1,6 +1,0 @@
-{
-  "name": "Hide Messages.app",
-  "description": "Automatically hide Messages.app when sharing your screen.",
-  "platforms": ["macos"],
-  "language": "applescript"
-}

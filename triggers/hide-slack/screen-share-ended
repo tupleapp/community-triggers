@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-if [ "$TUPLE_TRIGGER_IS_SELF" = "true" ]; then
-osascript <<END
-tell application "System Events" to set visible of application process "Slack" to true
-END
-fi
