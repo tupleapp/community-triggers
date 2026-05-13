@@ -2,10 +2,11 @@
   "name": "tuple-community-triggers-utils",
   "version": "0.0.1",
   "private": true,
+  "packageManager": "pnpm@10.32.1",
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.922.0",
-    "@aws-sdk/lib-dynamodb": "^3.922.0",
+    "@aws-sdk/client-dynamodb": "^3.958.0",
+    "@aws-sdk/lib-dynamodb": "^3.958.0",
     "ejs": "^3.1.10",
-    "zod": "^4.1.12"
+    "zod": "^4.3.4"
   }
 }

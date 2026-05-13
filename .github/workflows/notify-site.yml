@@ -1,0 +1,12 @@
+name: Trigger triggers-site rebuild
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poke Netlify build hook
+        run: curl -fsSL -X POST -d {} "${{ secrets.TRIGGERS_SITE_BUILD_HOOK }}"
