@@ -1,6 +1,0 @@
-{
-  "name": "Hide Notes.app",
-  "description": "Automatically hide Notes.app when sharing your screen.",
-  "platforms": ["macos"],
-  "language": "applescript"
-}

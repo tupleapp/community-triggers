@@ -4,10 +4,9 @@ Notify a Slack #channel when you join a room.
 
 ## Setup
 
-1. Go to your Slack app's incoming webhooks page: https://YOUR_WORKSPACE.slack.com/apps/A0F7XDUAZ-incoming-webhooks.
-2. Click "Add to Slack".
-3. Choose the channel where notifications should be posted, and click "Add Incoming Webhooks Integration".
-4. Copy the webhook URL provided. This URL is used to post messages from external sources into Slack.
+1. Create a Slack app at https://api.slack.com/apps — click **Create New App → From scratch**, name it (e.g. "Tuple Room Notify"), and pick the workspace you want to post to.
+2. In the app's sidebar, open **Incoming Webhooks** and toggle it on.
+3. Click **Add New Webhook to Workspace**, choose the channel that should receive notifications, and click **Allow**.
+4. Copy the webhook URL that Slack generates.
 
-In the [room-joined script](./room-joined) replace the `SLACK_WEBHOOK_URL` variable with the new webhook URL you generated above.
-
+In the [room-joined script](./room-joined), replace the `SLACK_WEBHOOK_URL` value with your webhook URL.

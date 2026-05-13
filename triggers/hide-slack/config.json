@@ -1,6 +1,0 @@
-{
-  "name": "Hide Slack.app",
-  "description": "Automatically hide Slack.app when sharing your screen.",
-  "platforms": ["macos"],
-  "language": "applescript"
-}

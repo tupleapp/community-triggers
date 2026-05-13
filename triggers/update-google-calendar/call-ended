@@ -10,14 +10,14 @@ START_TIME=$(date -v-${CALL_LENGTH}S -u +"%Y%m%dT%H%M%SZ")
 # AppleScript for input dialog to get the title of the event
 EVENT_TITLE=$(osascript -e 'Tell application "System Events" to display dialog "Enter the title of the event for Google Calendar:" default answer ""' -e 'text returned of result' 2>/dev/null)
 
-# Check if user pressed "Cancel"
-if [ $? -ne 0 ]; then
-  echo "User canceled the input dialog. Exiting script."
+# Check if the user canceled or didn't enter a title
+if [ -z "$EVENT_TITLE" ]; then
+  echo "No title entered. Exiting script."
   exit 0
 fi
 
 # Remove newlines and carriage returns, then URL encode the title
-ENCODED_TITLE=$(echo "$EVENT_TITLE" | tr -d '\n\r' | perl -MURI::Escape -ne 'print uri_escape($_)')
+ENCODED_TITLE=$(printf '%s' "$EVENT_TITLE" | tr -d '\n\r' | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read()))')
 
 # Create the Google Calendar event URL with the user-entered title
 CALENDAR_URL="https://calendar.google.com/calendar/render?action=TEMPLATE&text=$ENCODED_TITLE&details=Tuple%20Call&dates=$START_TIME/$CURRENT_TIME"

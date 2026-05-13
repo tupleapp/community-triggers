@@ -19,4 +19,4 @@ Additionally, you'll need to start OBS's built-in WebSocket server. You can enab
 You can also set a WebSocket server password if desired. Note that the scripts in this trigger expect the WebSocket server **to not have a password set**. If you choose to set a password, update these trigger scripts accordingly.
 
 ### Install Deno
-These scripts run via [deno](https://deno.com/). They expect the `deno` executable to be at `/usr/local/bin/deno`. If you have it installed in a different location, you'll need to update that in the scripts, or create a symlink in the expected location.
+These scripts run via [deno](https://deno.com/). The shebang resolves `deno` via `env`, so make sure `deno` is on your `PATH` (e.g. `brew install deno` works on both Intel and Apple Silicon Macs).
