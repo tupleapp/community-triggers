@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOG=/tmp/tuple-trigger-debug.log
+{
+    printf '\n=== %s call-transcription-started fired (claude-drama-triangle-coach) ===\n' "$(date -u +%FT%TZ)"
+    printf 'cwd=%s pid=%s ppid=%s\n' "$(pwd)" "$$" "$PPID"
+    printf 'argv: %s\n' "$*"
+    printf 'env (filtered):\n'
+    env | grep -E '^(HOME|USER|PATH|TUPLE_|CURRENT_USER_)' | sort
+} >> "$LOG" 2>&1
+trap 'printf "exit status=%s on line %s\n" "$?" "$LINENO" >> "$LOG"' EXIT
+
+# Tuple's trigger agent runs scripts with a minimal PATH; make sure the
+# common install locations for `tuple` are reachable.
+PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
+
+exec >>"$LOG" 2>&1
+
+TRIGGER_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# The call root holds every transcription subdir for this call; we run
+# Claude right inside it so the session survives transcription stop/restart
+# and can Read the raw transcriptions.jsonl/events.jsonl directly if it
+# wants.
+CALL_ROOT="$(dirname "${TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY}")"
+CALL_ID="$(basename "${CALL_ROOT}")"
+SHORT_ID="${CALL_ID:0:8}"
+PID_FILE="${CALL_ROOT}/drama-triangle-coach.pid"
+SYSTEM_PROMPT_FILE="${CALL_ROOT}/drama-triangle-coach-system-prompt.md"
+INITIAL_PROMPT_FILE="${CALL_ROOT}/drama-triangle-coach-initial-prompt.md"
+COMMAND_FILE="/tmp/tuple-drama-triangle-coach-${SHORT_ID}.command"
+
+# Find the daemon whose active call matches the call ID this trigger fired
+# for. Probes each env in turn so the env→socket mapping stays owned by the
+# CLI and we pick the right daemon when multiple envs are running.
+TUPLE_ENV=""
+for candidate in prod staging dev; do
+    flag=()
+    [ "${candidate}" != "prod" ] && flag=(--env "${candidate}")
+    id=$(tuple ${flag[@]+"${flag[@]}"} state --format json 2>/dev/null | jq -r '.current_call.id // ""' || true)
+    if [ "${id}" = "${CALL_ID}" ]; then
+        TUPLE_ENV="${candidate}"
+        break
+    fi
+done
+if [ -z "${TUPLE_ENV}" ]; then
+    echo "claude-drama-triangle-coach: no daemon has call ${CALL_ID}" >&2
+    exit 1
+fi
+export TUPLE_ENV
+
+case "${TUPLE_ENV}" in
+    staging)
+        IDENTITY_FILE="${HOME}/.tuplestaging/identity.md"
+        ;;
+    *)
+        IDENTITY_FILE="${HOME}/.tuple/identity.md"
+        ;;
+esac
+
+# If a coach session is still alive (transcription was stopped and
+# restarted), leave it be — its existing subscription picks up the
+# resumed stream.
+if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}" 2>/dev/null)" 2>/dev/null; then
+    exit 0
+fi
+
+# Build the appended system prompt: operational/framework rules first, then
+# optional identity grounding so the model knows whose voice it's coaching.
+# NEVER rm -rf CALL_ROOT — it holds the live transcription artifacts.
+cp "${TRIGGER_DIR}/system-prompt.md" "${SYSTEM_PROMPT_FILE}"
+if [ -f "${IDENTITY_FILE}" ]; then
+    printf '\n---\n\n' >> "${SYSTEM_PROMPT_FILE}"
+    cat "${IDENTITY_FILE}" >> "${SYSTEM_PROMPT_FILE}"
+fi
+
+# Inline the recent events + transcript so the model has context when
+# joining mid-call. Cap at 100 lines each so we don't dump a long history
+# into the opening turn.
+{
+    printf 'Your user just started (or resumed) transcription on a Tuple pair-programming call. You are the drama-triangle coach: watch their own lines for Victim / Persecutor / Rescuer patterns and fire a macOS notification (via osascript) with a one-line reframe when you spot one. Stay otherwise silent. Follow the setup steps in your system prompt, then return silently and wait for a wake signal.\n\n'
+    printf '## Recent lifecycle events (last 100)\n\n```\n'
+    tuple transcription events 2>/dev/null | tail -100 || printf '(no events yet)\n'
+    printf '```\n\n## Recent transcript (last 100 lines)\n\n```\n'
+    tuple transcription text 2>/dev/null | tail -100 || printf '(no transcript yet)\n'
+    printf '```\n'
+} > "${INITIAL_PROMPT_FILE}"
+
+cat > "${COMMAND_FILE}" <<SCRIPT
+#!/bin/zsh -li
+printf '\e]0;Drama Triangle Coach ${SHORT_ID}\a'
+cd '${CALL_ROOT}'
+echo \$\$ > '${PID_FILE}'
+export TUPLE_ENV='${TUPLE_ENV}'
+exec claude \\
+    --model opus \\
+    --effort low \\
+    --append-system-prompt-file '${SYSTEM_PROMPT_FILE}' \\
+    "\$(cat '${INITIAL_PROMPT_FILE}')"
+SCRIPT
+chmod +x "${COMMAND_FILE}"
+# Prefer Ghostty when installed; otherwise let the OS pick the default
+# .command handler (Terminal.app on a stock macOS). Invoke Ghostty's
+# binary directly with -e instead of `open -a` so LaunchServices doesn't
+# fire the .command-association confirm dialog.
+if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
+    /Applications/Ghostty.app/Contents/MacOS/ghostty -e "${COMMAND_FILE}" &
+else
+    open "${COMMAND_FILE}" &
+fi

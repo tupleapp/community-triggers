@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOG=/tmp/tuple-trigger-debug.log
+{
+    printf '\n=== %s call-transcription-complete fired (claude-drama-triangle-coach) ===\n' "$(date -u +%FT%TZ)"
+    printf 'cwd=%s pid=%s ppid=%s\n' "$(pwd)" "$$" "$PPID"
+    printf 'argv: %s\n' "$*"
+} >> "$LOG" 2>&1
+trap 'printf "exit status=%s on line %s\n" "$?" "$LINENO" >> "$LOG"' EXIT
+
+PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
+exec >>"$LOG" 2>&1
+
+TRIGGER_DIR="$(cd "$(dirname "$0")" && pwd)"
+CALL_ROOT="$(dirname "${TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY}")"
+CALL_ID="$(basename "${CALL_ROOT}")"
+SHORT_ID="${CALL_ID:0:8}"
+EVAL_FILE="${CALL_ROOT}/drama-evaluation.md"
+OBSERVER_PROMPT="${TRIGGER_DIR}/observer-system-prompt.md"
+
+# Brief pause so an in-flight call-end can propagate into `tuple state`,
+# then probe each daemon to see whether THIS call is still the current
+# call somewhere. If it is, transcription was toggled off mid-call — skip
+# the wholesale eval, the in-call coach is still alive and will handle it
+# on the real call end.
+sleep 3
+
+still_active=""
+for candidate in prod staging dev; do
+    flag=()
+    [ "${candidate}" != "prod" ] && flag=(--env "${candidate}")
+    id=$(tuple ${flag[@]+"${flag[@]}"} state --format json 2>/dev/null | jq -r '.current_call.id // ""' || true)
+    if [ "${id}" = "${CALL_ID}" ]; then
+        still_active="${candidate}"
+        break
+    fi
+done
+
+if [ -n "${still_active}" ]; then
+    echo "claude-drama-triangle-coach observer: call ${SHORT_ID} still active on ${still_active}, transcription toggled mid-call — skipping wholesale eval"
+    exit 0
+fi
+
+# Verify there's actually something to analyze. If the user toggled
+# transcription on and off without saying anything, there's nothing to
+# evaluate.
+shopt -s nullglob
+transcript_files=("${CALL_ROOT}"/*/transcriptions.jsonl)
+shopt -u nullglob
+if [ "${#transcript_files[@]}" -eq 0 ]; then
+    echo "claude-drama-triangle-coach observer: no transcripts on disk for ${SHORT_ID} — skipping"
+    exit 0
+fi
+
+# Optional identity grounding — same files the live coach reads.
+case "${TUPLE_TRIGGER_ENV:-prod}" in
+    staging) IDENTITY_FILE="${HOME}/.tuplestaging/identity.md" ;;
+    *)       IDENTITY_FILE="${HOME}/.tuple/identity.md" ;;
+esac
+
+APPENDED_PROMPT="${CALL_ROOT}/drama-triangle-coach-observer-prompt.md"
+cp "${OBSERVER_PROMPT}" "${APPENDED_PROMPT}"
+if [ -f "${IDENTITY_FILE}" ]; then
+    printf '\n---\n\n' >> "${APPENDED_PROMPT}"
+    cat "${IDENTITY_FILE}" >> "${APPENDED_PROMPT}"
+fi
+
+USER_PROMPT="The Tuple call has ended. The call root is ${CALL_ROOT}. Read every transcriptions.jsonl under that directory in chronological order, plus any events.jsonl files for participant info, and produce the wholesale drama-triangle evaluation per your system prompt. Write it to ${EVAL_FILE}. End the file with a SUMMARY: line so the launching script can extract it for a notification."
+
+# Run Claude headless. Output goes to the log; the eval itself is written
+# to ${EVAL_FILE} by Claude's tools.
+cd "${CALL_ROOT}"
+claude \
+    --model opus \
+    --effort low \
+    --append-system-prompt-file "${APPENDED_PROMPT}" \
+    --print \
+    "${USER_PROMPT}" \
+    >> "${LOG}" 2>&1 || {
+        echo "claude-drama-triangle-coach observer: claude exited non-zero — see log above" >&2
+        exit 1
+    }
+
+# Pull the SUMMARY: line for the notification body, fall back to a generic
+# message if the model forgot to write one.
+SUMMARY=""
+if [ -f "${EVAL_FILE}" ]; then
+    SUMMARY=$(grep -m1 '^SUMMARY:' "${EVAL_FILE}" | sed 's/^SUMMARY:[[:space:]]*//' || true)
+fi
+[ -z "${SUMMARY}" ] && SUMMARY="Open ${EVAL_FILE}"
+
+# Escape double quotes for AppleScript.
+SUMMARY_ESCAPED=${SUMMARY//\"/\\\"}
+
+# Prefer terminal-notifier if installed — it supports click-to-open the
+# file. Fall back to osascript so the trigger works on a stock macOS.
+if command -v terminal-notifier >/dev/null 2>&1; then
+    terminal-notifier \
+        -title "Drama Triangle Coach — analysis ready" \
+        -subtitle "Call ${SHORT_ID}" \
+        -message "${SUMMARY}" \
+        -open "file://${EVAL_FILE}" \
+        -sound Tink \
+        >> "${LOG}" 2>&1 || true
+else
+    osascript -e "display notification \"${SUMMARY_ESCAPED}\" with title \"Drama Triangle Coach — analysis ready\" subtitle \"Call ${SHORT_ID}\" sound name \"Tink\"" >> "${LOG}" 2>&1 || true
+fi
+
+echo "claude-drama-triangle-coach observer: wrote ${EVAL_FILE}"
