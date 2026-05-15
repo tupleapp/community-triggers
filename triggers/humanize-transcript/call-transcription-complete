@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Build a human-readable transcript from a Tuple call's raw artifacts.
+Writes transcript.md alongside events.jsonl in the call artifacts directory."""
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+ARTIFACTS_DIR = Path(os.environ["TUPLE_TRIGGER_CALL_ARTIFACTS_DIRECTORY"])
+EVENTS = ARTIFACTS_DIR / "events.jsonl"
+TRANSCRIPTIONS = ARTIFACTS_DIR / "transcriptions.jsonl"
+TRANSCRIPT_OUT = ARTIFACTS_DIR / "transcript.md"
+
+DROPPED_CATEGORIES = {"user_audio_started", "user_audio_stopped"}
+
+EVENT_LABELS = {
+    "recording_started": "Recording started",
+    "user_joined": "joined",
+    "user_left": "left",
+    "user_webcam_started": "started webcam",
+    "user_webcam_stopped": "stopped webcam",
+    "user_screen_sharing_started": "started screen sharing",
+    "user_screen_sharing_stopped": "stopped screen sharing",
+}
+
+
+def parse_iso(ts: str) -> datetime:
+    return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+
+def fmt_ts(dt: datetime) -> str:
+    return dt.strftime("%H:%M:%S")
+
+
+def load_jsonl(path: Path):
+    if not path.exists():
+        return
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                yield json.loads(line)
+
+
+def build_transcript() -> tuple[str, int]:
+    user_names: dict[int, str] = {}
+    items = []
+
+    for ev in load_jsonl(EVENTS):
+        cat = ev.get("category")
+        if cat in DROPPED_CATEGORIES:
+            continue
+        user = ev.get("user") or {}
+        if "id" in user and "short_name" in user:
+            user_names[user["id"]] = user["short_name"]
+        items.append({
+            "kind": "event",
+            "time": parse_iso(ev["time"]),
+            "category": cat,
+            "user": user,
+            "message": ev.get("message", ""),
+        })
+
+    for tr in load_jsonl(TRANSCRIPTIONS):
+        items.append({
+            "kind": "speech",
+            "time": parse_iso(tr["start"]),
+            "end": parse_iso(tr["end"]),
+            "user_id": tr["user_id"],
+            "text": tr["text"].strip(),
+        })
+
+    items.sort(key=lambda x: x["time"])
+
+    lines = ["# Call transcript", ""]
+    last_speaker = None
+
+    for item in items:
+        if item["kind"] == "event":
+            last_speaker = None
+            cat = item["category"]
+            label = EVENT_LABELS.get(cat, cat)
+            user = item["user"]
+            name = user.get("short_name") or user.get("full_name")
+            ts = fmt_ts(item["time"])
+            if cat == "recording_started":
+                lines.append(f"_[{ts}] {label}._")
+            elif name:
+                lines.append(f"_[{ts}] **{name}** {label}._")
+            else:
+                lines.append(f"_[{ts}] {label}: {item['message']}_")
+            lines.append("")
+        else:
+            speaker = user_names.get(item["user_id"], f"user {item['user_id']}")
+            ts = fmt_ts(item["time"])
+            text = item["text"]
+            if speaker == last_speaker:
+                lines[-2] += " " + text
+            else:
+                lines.append(f"**[{ts}] {speaker}:** {text}")
+                lines.append("")
+                last_speaker = speaker
+
+    return "\n".join(lines) + "\n", len(items)
+
+
+def main():
+    transcript, item_count = build_transcript()
+    TRANSCRIPT_OUT.write_text(transcript)
+    print(f"Wrote {TRANSCRIPT_OUT} ({item_count} items)")
+
+
+if __name__ == "__main__":
+    main()
