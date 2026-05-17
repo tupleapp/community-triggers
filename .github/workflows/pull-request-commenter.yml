@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.6
         with:
           version: 10.32.1
           run_install: |
