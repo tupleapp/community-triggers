@@ -15,8 +15,8 @@ importers:
         specifier: ^3.1053.0
         version: 3.1053.0(@aws-sdk/client-dynamodb@3.1053.0)
       ejs:
-        specifier: ^5.0.2
-        version: 5.0.2
+        specifier: ^6.0.1
+        version: 6.0.1
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -174,8 +174,8 @@ packages:
   bowser@2.14.1:
     resolution: {integrity: sha512-tzPjzCxygAKWFOJP011oxFHs57HzIhOEracIgAePE4pqB3LikALKnSzUyU4MGs9/iCEUuHlAJTjTc5M+u7YEGg==}
 
-  ejs@5.0.2:
-    resolution: {integrity: sha512-IpbUaI/CAW86l3f+T8zN0iggSc0LmMZLcIW5eRVStLVNCoTXkE0YlncbbH50fp8Cl6zHIky0sW2uUbhBqGw0Jw==}
+  ejs@6.0.1:
+    resolution: {integrity: sha512-UaaM14yby8U3k02ihS1Bmj5Kz2d7CCQM1scxpgs4Mhkq8F1wR2gl3+Ts4h5Ne4Mnt7M9m4Dw7jsuMr3+xO4vZA==}
     engines: {node: '>=0.12.18'}
     hasBin: true
 
@@ -487,7 +487,7 @@ snapshots:
 
   bowser@2.14.1: {}
 
-  ejs@5.0.2: {}
+  ejs@6.0.1: {}
 
   fast-xml-builder@1.2.0:
     dependencies:
