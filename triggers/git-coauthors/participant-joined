@@ -1,7 +1,28 @@
 #!/usr/bin/env ruby
 
-email = ENV.fetch("TUPLE_TRIGGER_EMAIL")
-name = ENV.fetch("TUPLE_TRIGGER_FULL_NAME")
+# Name and email come from another call participant, so they can hold arbitrary
+# bytes. A Co-Authored-By line is a single git trailer with no line continuation,
+# so anything that isn't a real name/email character is dropped here — otherwise
+# a newline in the name would inject extra trailers into ~/.gitmessage.
+# participant-left sanitizes identically so the add and remove match.
+
+# Letters in any script (with combining accents), digits, spaces, and the
+# punctuation names actually use. Everything else becomes a space, then runs of
+# space collapse.
+def name_safe(value)
+  value.gsub(/[^\p{L}\p{M}\p{N} .,'-]/, " ").squeeze(" ").strip
+end
+
+# The email sits inside <...>; drop whitespace and the brackets/quotes that would
+# let it escape, keep the @ . + _ - that emails legitimately use.
+def email_safe(value)
+  value.gsub(/[[:cntrl:]<>"'\s]/, "")
+end
+
+name = name_safe(ENV.fetch("TUPLE_TRIGGER_FULL_NAME"))
+email = email_safe(ENV.fetch("TUPLE_TRIGGER_EMAIL"))
+exit 0 if name.empty? || !email.include?("@")
+
 template_path = "#{Dir.home}/.gitmessage"
 line = "Co-Authored-By: #{name} <#{email}>"
 
