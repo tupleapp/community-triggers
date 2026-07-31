@@ -2,6 +2,10 @@
 
 Notify a Slack #channel when you join a room.
 
+## Prerequisites
+
+- [`jq`](https://jqlang.github.io/jq/) (`brew install jq`) — used to build the JSON payload so participant and room names are safely encoded.
+
 ## Setup
 
 1. Create a Slack app at https://api.slack.com/apps. Click **Create New App → From scratch**, name it (e.g. "Tuple Room Notify"), and pick the workspace you want to post to.

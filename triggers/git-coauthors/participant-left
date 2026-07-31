@@ -1,7 +1,17 @@
 #!/usr/bin/env ruby
 
-email = ENV.fetch("TUPLE_TRIGGER_EMAIL")
-name = ENV.fetch("TUPLE_TRIGGER_FULL_NAME")
+# Sanitize identically to participant-joined so the line we remove matches the
+# line that was written.
+def name_safe(value)
+  value.gsub(/[^\p{L}\p{M}\p{N} .,'-]/, " ").squeeze(" ").strip
+end
+
+def email_safe(value)
+  value.gsub(/[[:cntrl:]<>"'\s]/, "")
+end
+
+name = name_safe(ENV.fetch("TUPLE_TRIGGER_FULL_NAME"))
+email = email_safe(ENV.fetch("TUPLE_TRIGGER_EMAIL"))
 template_path = "#{Dir.home}/.gitmessage"
 
 if !File.exist?(template_path)
