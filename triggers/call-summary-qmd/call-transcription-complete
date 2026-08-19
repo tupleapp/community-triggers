@@ -129,15 +129,24 @@ if [ "${CALL_SUMMARY_QMD_DRY_RUN:-}" = "1" ]; then
     exit 0
 fi
 
-# A login zsh resolves `claude`, `tuple` and `qmd` from the user's normal PATH
-# (Tuple's trigger host doesn't have them), including the node that qmd and Claude
-# Code need for their `#!/usr/bin/env node` shebangs. The prompt arrives on stdin.
-# Bash lets Claude run the `tuple` CLI; the allow-list is limited to the
-# transcription subcommands it needs to read the call and write the summary back.
-# When Claude exits, this script runs again with --index-only to hand the result
-# to qmd.
-nohup /bin/zsh -lc '
+# Resolve `claude`, `tuple` and `qmd` from the user's normal PATH, including the
+# node that qmd and Claude Code need for their `#!/usr/bin/env node` shebangs —
+# Tuple's trigger host has none of them.
+#
+# `-i` matters as much as `-l`: zsh only sources ~/.zshrc for *interactive*
+# shells, and on macOS that is where PATH is usually extended. A plain
+# `zsh -lc` reads only .zshenv/.zprofile/.zlogin, so a tool installed in
+# ~/.local/bin is invisible and the run dies with "claude not found". The PATH
+# prepend below is a second line of defence for setups where neither file adds
+# it. Interactive mode without a tty logs a harmless "can't change option: zle".
+#
+# The prompt arrives on stdin. The allow-list is limited to the transcription
+# subcommands Claude needs to read the call and write the summary back. When
+# Claude exits, this script runs again with --index-only to hand the result to qmd.
+nohup /bin/zsh -lic '
     cd "$1" || exit 1
+    PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
+    export PATH
     command -v claude >/dev/null 2>&1 || { echo "call-summary-qmd: claude not found on login-shell PATH"; exit 127; }
     command -v tuple  >/dev/null 2>&1 || { echo "call-summary-qmd: tuple not found on login-shell PATH"; exit 127; }
     claude -p --allowed-tools "Bash(tuple transcription show:*)" "Bash(tuple transcription list:*)" "Bash(tuple transcription set-title:*)" "Bash(tuple transcription set-summary:*)" "Bash(tuple call current:*)"
