@@ -40,7 +40,7 @@ Leave it empty (the default) to DM yourself. The environment variable form also 
 `call-transcription-complete` fires with no call-specific arguments. This trigger:
 
 1. Writes `slack-call-summary-claude-prompt.md` into a working directory (`${TMPDIR:-/tmp}/tuple-slack-call-summary-claude/<timestamp>-<pid>`), including the configured recipient and all instructions.
-2. Headlessly launches a login zsh (`nohup zsh -lc`, so `claude` and `tuple` resolve from your normal PATH — no terminal window) that runs `claude -p` in that directory with the prompt on stdin and a scoped tool allowlist: `Read`, `Bash`, `Write(slack-call-summary-claude-failed.md)`, and `mcp__claude_ai_Slack`. In `-p` print mode any tool outside the allowlist is auto-denied — `Bash` lets Claude run the `tuple` CLI, and the Slack tool lets it send the message; nothing else.
+2. Headlessly launches a login zsh (`nohup zsh -lic`, so `claude` and `tuple` resolve from your normal PATH — no terminal window) that runs `claude -p` in that directory with the prompt on stdin and a scoped tool allowlist: `Read`, `Bash`, `Write(slack-call-summary-claude-failed.md)`, and `mcp__claude_ai_Slack`. In `-p` print mode any tool outside the allowlist is auto-denied — `Bash` lets Claude run the `tuple` CLI, and the Slack tool lets it send the message; nothing else.
 3. Claude finds the call (`tuple call current` / `tuple transcription list`), reads it (`tuple transcription show <id> --with-events`), writes the title + summary back (`tuple transcription set-title` / `set-summary`), and sends the Slack message.
 
 ## Troubleshooting
@@ -48,7 +48,7 @@ Leave it empty (the default) to DM yourself. The environment variable form also 
 - **Trigger not firing**: Check `/tmp/tuple-trigger-debug.log` — the banner `call-transcription-complete fired (slack-call-summary-claude)` appears each time the trigger runs.
 - **No Slack DM and no error**: Check `slack-call-summary-claude.log` in the working directory (printed at launch) for the Claude run output.
 - **Slack delivery failed**: Look for `slack-call-summary-claude-failed.md` in the working directory — it contains the composed message and the error.
-- **`claude not found` / `tuple not found`**: Make sure both are on your login-shell PATH (test with `zsh -l -c 'which claude tuple'`).
+- **`claude not found` / `tuple not found`**: Make sure both are on your login-shell PATH (test with `zsh -lic 'which claude tuple'`).
 - **Slack connector not available**: Run `claude mcp list` and confirm `claude.ai Slack: Connected`.
 
 ## Dry run

@@ -103,7 +103,7 @@ fi
 # (see openai/codex#24135). The prompt is fixed and only reads stored call
 # data, but this does run Codex unsandboxed — remove the trigger if that
 # trade-off doesn't work for you.
-nohup /bin/zsh -lc '
+nohup /bin/zsh -lic '
     cd "$1" || exit 1
     command -v codex >/dev/null 2>&1 || { echo "slack-call-summary-codex: codex not found on login-shell PATH"; exit 127; }
     command -v tuple  >/dev/null 2>&1 || { echo "slack-call-summary-codex: tuple not found on login-shell PATH"; exit 127; }
