@@ -100,7 +100,7 @@ fi
 # connector so the send works out of the box (any other Slack MCP works too as
 # long as its tools are allowed in your Claude Code settings, or add its
 # mcp__<server> rule below).
-nohup /bin/zsh -lc '
+nohup /bin/zsh -lic '
     cd "$1" || exit 1
     command -v claude >/dev/null 2>&1 || { echo "slack-call-summary-claude: claude not found on login-shell PATH"; exit 127; }
     command -v tuple  >/dev/null 2>&1 || { echo "slack-call-summary-claude: tuple not found on login-shell PATH"; exit 127; }
