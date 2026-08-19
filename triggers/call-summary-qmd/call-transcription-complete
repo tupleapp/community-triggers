@@ -27,6 +27,25 @@ if [ "${1:-}" = "--index-only" ]; then
         echo "call-summary-qmd: qmd not found on login-shell PATH; summary saved, indexing skipped"
         exit 0
     }
+    # Claude exits as soon as it has issued set-summary, but the value is not
+    # always readable yet, and the exporter only rewrites a file whose content
+    # changed — exporting a moment too early leaves the call indexed as
+    # "Untitled call" until some later `qmd update` repairs it. Wait briefly for
+    # the newest call to carry a summary before exporting.
+    if command -v tuple >/dev/null 2>&1; then
+        i=0
+        while [ "$i" -lt 15 ]; do
+            tuple transcription list --format json 2>/dev/null | /usr/bin/python3 -c 'import json,sys
+try:
+    calls = json.load(sys.stdin)
+    sys.exit(0 if calls and (calls[0].get("summary") or "").strip() else 1)
+except Exception:
+    sys.exit(1)' 2>/dev/null && break
+            i=$((i + 1))
+            sleep 1
+        done
+    fi
+
     mkdir -p "${EXPORT_DIR}"
     # Register the collection on first run, so installing the trigger is the whole
     # setup. The update command re-exports before every future re-index, which is
