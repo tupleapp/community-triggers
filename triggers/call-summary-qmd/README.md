@@ -1,24 +1,28 @@
 # Call Summary - qmd
 
 A [Tuple](https://tuple.app) trigger that summarizes a finished call with [Claude
-Code](https://claude.com/claude-code) and indexes it into [qmd](https://github.com/tobi/qmd), so past
-calls are searchable from the terminal alongside everything else qmd indexes.
+Code](https://claude.com/claude-code) and indexes it into [qmd](https://github.com/tobi/qmd) — a local
+search engine over markdown — so past calls are searchable from the terminal alongside everything
+else qmd indexes.
 
-Nothing opens and nothing waits for input. The summary appears in Tuple's Call History on its own,
-and the call becomes searchable a moment later.
+This is the same headless shape as `slack-call-summary-claude`, with the Slack delivery replaced by
+local indexing. Nothing opens and nothing waits for input.
 
 ## What it does
 
-When `call-transcription-complete` fires:
+When `call-transcription-complete` fires, the trigger writes a prompt and launches Claude headless.
+Claude then:
 
-- Finds the call — the id from the trigger environment, or the most recent stored call.
-- Skips it if it already has a summary, so a summary you wrote yourself is never overwritten.
-- Reads the transcript with `tuple transcription show` and writes a title plus a structured summary
-  (outcome, decisions, action items, open questions, notable context) back onto the call with
-  `tuple transcription set-title` / `set-summary`.
-- Exports every call's title and summary to markdown and indexes them into qmd.
+- Finds the call — `tuple call current` if you're still on it, otherwise the most recent call from
+  `tuple transcription list`.
+- Stops without changing anything if that call already has a summary, so one you wrote by hand is
+  never overwritten.
+- Reads the transcript — `tuple transcription show <id> --with-events`.
+- Writes a title and a structured summary (outcome, decisions, action items, open questions, notable
+  context) back onto the call with `tuple transcription set-title` / `set-summary`, so they show up
+  in Tuple's Call History.
 
-Then past calls are searchable:
+The trigger then exports every call's title and summary to markdown and hands them to qmd:
 
 ```bash
 qmd query "what did we decide about rate limiting" -c tuple
@@ -36,23 +40,23 @@ tuple transcription show <call-id>
 ```
 
 Everything stays on your machine: Tuple transcribes on-device, qmd indexes and embeds locally, and
-the summaries are plain markdown you can read or delete.
+the exported summaries are plain markdown you can read or delete.
 
 ## Requirements
 
 - macOS
-- The `tuple` CLI with `transcription` support
-- [Claude Code](https://claude.com/claude-code) (`claude` on your `PATH`), authenticated
-- [qmd](https://github.com/tobi/qmd) (`qmd` on your `PATH`) — optional; without it the summary is
-  still written to the call and only the indexing step is skipped
+- The `tuple` CLI available on your login shell's `PATH` (with `transcription` support)
+- [Claude Code](https://claude.com/claude-code) (`claude`), authenticated
+- [qmd](https://github.com/tobi/qmd) — optional. Without it the summary is still written to the
+  call and only the indexing step is skipped.
 
 ## Setup
 
 Install the trigger. There is no other setup: on its first run it registers the qmd collection and
-wires the collection's update command, so `qmd update` keeps it current from then on.
+sets that collection's update command, so `qmd update` keeps it current from then on.
 
-Claude Code is given a deliberately narrow permission scope — only the `tuple transcription`
-subcommands it needs to read the transcript and write the summary back.
+Claude Code is given a deliberately narrow allow-list — only the `tuple transcription` subcommands
+needed to read the call and write the summary back.
 
 ## Configuration
 
@@ -60,21 +64,18 @@ subcommands it needs to read the transcript and write the summary back.
 | --- | --- | --- |
 | `TUPLE_QMD_OUT` | `$XDG_DATA_HOME/tuple-summaries` (`~/.local/share/tuple-summaries`) | Where the exported markdown lives |
 | `CALL_SUMMARY_QMD_COLLECTION` | `tuple` | Name of the qmd collection |
-| `CALL_SUMMARY_QMD_TIMEOUT` | `300` | Seconds to allow Claude Code before giving up |
+| `CALL_SUMMARY_QMD_DRY_RUN` | unset | Set to `1` to write the prompt and exit without running Claude |
 
 ## Troubleshooting
 
-Output is logged to `$TMPDIR/call-summary-qmd.log`.
+The trigger logs to `/tmp/tuple-trigger-debug.log`; each run also keeps its prompt and Claude's
+output under `$TMPDIR/tuple-call-summary-qmd/`.
 
 - **Nothing happens when a call ends.** Triggers must be enabled in Tuple, which registers a
   Background Item. Check with
   `launchctl print gui/$(id -u)/app.tuple.app.triggers >/dev/null 2>&1 && echo ON || echo OFF`.
-- **`the 'tuple' CLI is not on PATH`.** Triggers run from a Background Item with a minimal
-  environment. The script already adds `~/.local/bin`, `/usr/local/bin` and `/opt/homebrew/bin`; add
-  yours if the CLI lives elsewhere.
-- **`qmd is on PATH but will not run`.** qmd is launched through `#!/usr/bin/env node`, so where
-  node is managed by a version manager (fnm, nvm, asdf) it is unrunnable in the trigger's minimal
-  environment. Install qmd against a node that is always on `PATH`, or add your node's `bin`
-  directory to the `PATH` line near the top of `call-transcription-complete`.
+- **`claude not found on login-shell PATH`.** Triggers run from a Background Item with a minimal
+  environment, so the work is re-launched through a login shell. Make sure `claude`, `tuple` and
+  `qmd` all work in a fresh terminal.
 - **The call is indexed as "Untitled call".** The summary was not readable yet when the export ran.
   The next `qmd update` repairs it.

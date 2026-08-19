@@ -1,6 +1,6 @@
 {
   "name": "Call Summary - qmd",
-  "description": "When Tuple finishes transcribing a call, Claude Code writes a title and summary back onto the call, then indexes it into qmd so past calls are searchable from the terminal.",
+  "description": "When Tuple transcription completes, headlessly runs Claude Code to summarize the call (read via the `tuple` CLI), write a title and summary back onto the call, and index it into qmd so past calls are searchable from the terminal.",
   "category": "Call Summary",
   "platforms": ["macos"],
   "language": "bash"
