@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Export Tuple call titles and summaries as markdown for qmd to index.
+
+Summaries only, deliberately. A raw transcript is mostly filler and cross-talk,
+and it captures whatever personal conversation happened around the work; the
+summary is the part worth searching. Full transcripts stay one command away with
+`tuple transcription show <call-id>`.
+
+Invoked by call-transcription-complete, and again by qmd itself before every
+re-index (registered as the collection's update command), so the export is
+always current without anything being scheduled.
+
+This runs from qmd's update hook, so it must never fail: `qmd update` refreshes
+every collection, and a Tuple problem must not stop the others from indexing.
+Every failure path leaves existing output untouched and exits 0.
+"""
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+
+OUT = os.environ.get(
+    "TUPLE_QMD_OUT",
+    os.path.join(
+        os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+        "tuple-summaries",
+    ),
+)
+TUPLE = os.environ.get("TUPLE_BIN", "tuple")
+
+
+def bail(msg):
+    print(f"export-summaries: {msg}; leaving existing exports untouched", file=sys.stderr)
+    sys.exit(0)
+
+
+def local(ts):
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+    except ValueError:
+        return None
+
+
+def render(call):
+    cid = call.get("call_id") or ""
+    title = (call.get("title") or "").strip()
+    summary = (call.get("summary") or "").strip()
+    people = ", ".join(p.get("full_name", "") for p in call.get("participants") or []) or "unknown"
+    start, end = local(call.get("started_at")), local(call.get("ended_at"))
+    when = start.strftime("%Y-%m-%d %H:%M") if start else "unknown"
+    if start and end:
+        when += f" - {end.strftime('%H:%M')} ({round((end - start).total_seconds() / 60)}m)"
+
+    front = {
+        "call_id": cid,
+        "title": title or None,
+        "started_at": call.get("started_at"),
+        "ended_at": call.get("ended_at"),
+        "participants": people,
+        "segments": call.get("segments", 0),
+        "summarised": bool(summary),
+        "source": "tuple",
+    }
+    out = ["---"]
+    out += [f"{k}: {json.dumps(v)}" for k, v in front.items() if v is not None]
+    out += ["---", "", f"# {title or f'Untitled call - {when}'}", "",
+            f"**When:** {when}", f"**With:** {people}", ""]
+    if summary:
+        out += ["## Summary", "", summary, ""]
+    else:
+        out += [f"_No summary recorded yet._ Add one with "
+                f"`tuple transcription set-summary {cid} \"...\"`;", "it is indexed on the next sync.", ""]
+    out += ["## Full transcript", "", "Not indexed - retrieve on demand with:", "",
+            f"    tuple transcription show {cid}", ""]
+    return "\n".join(out)
+
+
+def main():
+    try:
+        proc = subprocess.run(
+            [TUPLE, "transcription", "list", "--format", "json"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except FileNotFoundError:
+        bail(f"{TUPLE!r} not found on PATH")
+    except (subprocess.SubprocessError, OSError) as exc:
+        bail(f"could not run tuple ({exc})")
+    if proc.returncode != 0:
+        bail(f"tuple exited {proc.returncode} ({(proc.stderr or '').strip()[:120]})")
+
+    try:
+        calls = json.loads(proc.stdout or "[]")
+        if not isinstance(calls, list):
+            raise ValueError("expected a JSON array")
+    except (ValueError, TypeError) as exc:
+        bail(f"unparseable tuple output ({exc})")
+
+    try:
+        os.makedirs(OUT, exist_ok=True)
+    except OSError as exc:
+        bail(f"cannot create {OUT} ({exc})")
+
+    wanted, written, pruned = {}, 0, 0
+    for call in calls:
+        if not isinstance(call, dict) or not call.get("call_id"):
+            continue
+        # Match tuple's own export: skip calls with nothing in them at all.
+        if not (call.get("summary") or call.get("title") or call.get("segments")):
+            continue
+        start = local(call.get("started_at"))
+        day = start.strftime("%Y-%m-%d") if start else "undated"
+        wanted[f"{day}@{call['call_id']}.md"] = render(call)
+
+    for name, body in wanted.items():
+        path = os.path.join(OUT, name)
+        try:  # write only when the content changed, so mtimes stay stable
+            with open(path) as handle:
+                if handle.read() == body:
+                    continue
+        except OSError:
+            pass
+        try:
+            with open(path, "w") as handle:
+                handle.write(body)
+            written += 1
+        except OSError as exc:
+            print(f"export-summaries: could not write {name} ({exc})", file=sys.stderr)
+
+    try:  # drop files for calls that have been deleted from Tuple
+        for name in os.listdir(OUT):
+            if name.endswith(".md") and name not in wanted:
+                os.remove(os.path.join(OUT, name))
+                pruned += 1
+    except OSError:
+        pass
+
+    print(f"export-summaries: {len(wanted)} calls ({written} written, {pruned} pruned) -> {OUT}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:  # never break `qmd update`
+        bail(f"unexpected error ({exc.__class__.__name__}: {exc})")
