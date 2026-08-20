@@ -42,6 +42,10 @@ tuple transcription show <call-id>
 Everything stays on your machine: Tuple transcribes on-device, qmd indexes and embeds locally, and
 the exported summaries are plain markdown you can read or delete.
 
+The export is additive: it writes new summaries and updates changed ones, and never deletes
+anything — `TUPLE_QMD_OUT` may well point at a directory holding other notes. One consequence is
+that deleting a call in Tuple leaves its summary here. Remove the file yourself if that matters.
+
 ## Requirements
 
 - macOS

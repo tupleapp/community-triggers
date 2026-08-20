@@ -10,37 +10,21 @@ Invoked by call-transcription-complete, and again by qmd itself before every
 re-index (registered as the collection's update command), so the export is
 always current without anything being scheduled.
 
+Strictly additive: it writes new summaries and updates changed ones, and never
+deletes anything. TUPLE_QMD_OUT may point at a directory that already holds other
+markdown, and no amount of ownership-sniffing is worth the risk of being wrong
+about that. One consequence: deleting a call in Tuple leaves its summary behind
+here. The exports are plain files — remove one with rm if that matters.
+
 This runs from qmd's update hook, so it must never fail: `qmd update` refreshes
 every collection, and a Tuple problem must not stop the others from indexing.
 Every failure path leaves existing output untouched and exits 0.
 """
 import json
 import os
-import re
 import subprocess
 import sys
 from datetime import datetime
-
-# Files this exporter writes: "<YYYY-MM-DD>@<call-id>.md", or "undated@..." when a
-# call has no start time. Used to decide what it may delete — see prune below.
-OWNED_NAME = re.compile(r"^(\d{4}-\d{2}-\d{2}|undated)@[0-9A-Za-z._-]+\.md$")
-OWNED_MARKER = 'source: "tuple"'
-
-
-def owned_by_exporter(path, name):
-    """True only for a file this exporter demonstrably wrote.
-
-    TUPLE_QMD_OUT may point at a directory that already holds other markdown —
-    someone's notes folder, say — so matching the filename pattern is not enough
-    on its own. The frontmatter marker has to be there too.
-    """
-    if not OWNED_NAME.match(name):
-        return False
-    try:
-        with open(path) as handle:
-            return OWNED_MARKER in handle.read(600)
-    except OSError:
-        return False
 
 OUT = os.environ.get(
     "TUPLE_QMD_OUT",
@@ -103,8 +87,12 @@ def render(call):
 def main():
     try:
         proc = subprocess.run(
-            # --limit -1: the default is 100, and anything not listed would be
-            # treated as deleted by the prune step below.
+            # --limit -1: the default is 100. A bounded list would silently stop
+            # covering older calls — on first install only the newest 100 would
+            # ever be indexed, and a summary added by hand to an older call would
+            # never be picked up. The read is one local SQLite query (~1 MB of
+            # JSON at 1000 calls), and unchanged files are not rewritten, so
+            # completeness costs approximately nothing.
             [TUPLE, "transcription", "list", "--format", "json", "--limit", "-1"],
             capture_output=True, text=True, timeout=30,
         )
@@ -127,7 +115,7 @@ def main():
     except OSError as exc:
         bail(f"cannot create {OUT} ({exc})")
 
-    wanted, written, pruned = {}, 0, 0
+    wanted, written = {}, 0
     for call in calls:
         if not isinstance(call, dict) or not call.get("call_id"):
             continue
@@ -153,20 +141,7 @@ def main():
         except OSError as exc:
             print(f"export-summaries: could not write {name} ({exc})", file=sys.stderr)
 
-    # Drop summaries for calls deleted from Tuple — but only files this exporter
-    # wrote. Anything else in the directory is left strictly alone.
-    try:
-        for name in os.listdir(OUT):
-            if name in wanted:
-                continue
-            path = os.path.join(OUT, name)
-            if owned_by_exporter(path, name):
-                os.remove(path)
-                pruned += 1
-    except OSError:
-        pass
-
-    print(f"export-summaries: {len(wanted)} calls ({written} written, {pruned} pruned) -> {OUT}")
+    print(f"export-summaries: {len(wanted)} calls ({written} written) -> {OUT}")
 
 
 if __name__ == "__main__":
