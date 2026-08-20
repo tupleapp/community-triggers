@@ -86,9 +86,6 @@ def render(call):
             f"**When:** {when}", f"**With:** {people}", ""]
     if summary:
         out += ["## Summary", "", summary, ""]
-    else:
-        out += [f"_No summary recorded yet._ Add one with "
-                f"`tuple transcription set-summary {cid} \"...\"`;", "it is indexed on the next sync.", ""]
     out += ["## Full transcript", "", "Not indexed - retrieve on demand with:", "",
             f"    tuple transcription show {cid}", ""]
     return "\n".join(out)
@@ -123,8 +120,13 @@ def main():
     for call in calls:
         if not isinstance(call, dict) or not call.get("call_id"):
             continue
-        # Match tuple's own export: skip calls with nothing in them at all.
-        if not (call.get("summary") or call.get("title") or call.get("segments")):
+        # Only calls carrying a title or summary. A transcript alone has nothing
+        # to search here — this indexes summaries, not transcripts — and a
+        # placeholder saying "no summary yet" is worse than an absence: it matches
+        # queries on its own boilerplate. Nothing summarises old calls
+        # retroactively, so those placeholders would never be filled in either.
+        # A summary added later is picked up on the next run inside the window.
+        if not ((call.get("summary") or "").strip() or (call.get("title") or "").strip()):
             continue
         start = local(call.get("started_at"))
         day = start.strftime("%Y-%m-%d") if start else "undated"

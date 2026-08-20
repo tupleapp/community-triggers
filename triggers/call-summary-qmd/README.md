@@ -47,9 +47,11 @@ anything — `TUPLE_QMD_OUT` may well point at a directory holding other notes. 
 that deleting a call in Tuple leaves its summary here. Remove the file yourself if that matters.
 
 Each run exports the ten most recent calls, which covers the call that just ended plus any that
-started and stopped while a slow summary was still being written. Older calls are not revisited, so
-if you install this over an existing call history — or write a summary onto an old call by hand —
-backfill once with:
+started and stopped while a slow summary was still being written. Only calls that have a title or a
+summary are exported — a transcript on its own has nothing to search here.
+
+Older calls are not revisited, and nothing summarises them retroactively. That only matters if an
+older call already carries a summary you wrote yourself, in which case widen the window once:
 
 ```bash
 CALL_SUMMARY_QMD_LIMIT=-1 ~/.tuple/triggers/call-summary-qmd/export-summaries
