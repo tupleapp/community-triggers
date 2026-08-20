@@ -60,35 +60,53 @@ except Exception:
     # setup. The update command re-exports before every future re-index, which is
     # what keeps `qmd update` alone sufficient from then on.
     #
-    # If the name is already taken by a different directory, stop rather than
-    # quietly indexing into someone else's collection or reporting success while
-    # having done nothing. CALL_SUMMARY_QMD_COLLECTION picks a different name.
-    existing_path=$(qmd collection show "${COLLECTION}" 2>/dev/null \
-        | sed -n 's/^[[:space:]]*Path:[[:space:]]*//p' | head -1)
-    if [ -z "${existing_path}" ]; then
-        echo "call-summary-qmd: registering qmd collection '${COLLECTION}' -> ${EXPORT_DIR}"
-        qmd collection add "${EXPORT_DIR}" --name "${COLLECTION}" || true
-        qmd collection update-cmd "${COLLECTION}" "'${EXPORTER}' || true" || true
-    elif [ "${existing_path}" != "${EXPORT_DIR}" ]; then
-        echo "call-summary-qmd: qmd collection '${COLLECTION}' already points at"
-        echo "  ${existing_path}"
-        echo "  but this trigger exports to"
-        echo "  ${EXPORT_DIR}"
-        echo "  Refusing to touch it. Set CALL_SUMMARY_QMD_COLLECTION to another name,"
-        echo "  or TUPLE_QMD_OUT to that path if the collection is already ours."
-        echo "  The summary is saved on the call either way."
-        exit 0
-    else
-        # Same path, so it is ours. Keep the update command current — the exporter
-        # moves if the trigger directory does.
-        want="'${EXPORTER}' || true"
-        have=$(qmd collection show "${COLLECTION}" 2>/dev/null \
-            | sed -n 's/^[[:space:]]*Update:[[:space:]]*//p' | head -1)
-        if [ "${have}" != "${want}" ]; then
-            echo "call-summary-qmd: updating collection '${COLLECTION}' update command"
-            qmd collection update-cmd "${COLLECTION}" "${want}" || true
+    # The preferred name may already belong to an unrelated collection, and there
+    # is nowhere useful to report that: this runs detached after the call ended,
+    # and `tuple notifications` only posts to an *active* call (HTTP 410
+    # otherwise). So rather than failing somewhere nobody looks, fall back to
+    # <name>-1, -2, -3. Matching on the configured path means a name picked on an
+    # earlier run is recognised as ours and reused, so this settles on one name
+    # instead of drifting upward.
+    # `qmd collection show` exits non-zero for a name that does not exist yet,
+    # which under `set -o pipefail` would fail the whole pipeline and, via
+    # `set -e`, kill the script at the very assignment meant to detect "free
+    # name". Absent is a normal answer here, so swallow the status.
+    collection_field() {
+        { qmd collection show "$1" 2>/dev/null || true; } \
+            | sed -n "s/^[[:space:]]*$2:[[:space:]]*//p" | head -1
+    }
+
+    want_update="'${EXPORTER}' || true"
+    resolved=""
+    for candidate in "${COLLECTION}" "${COLLECTION}-1" "${COLLECTION}-2" "${COLLECTION}-3"; do
+        existing=$(collection_field "${candidate}" Path)
+        if [ -z "${existing}" ]; then
+            echo "call-summary-qmd: registering qmd collection '${candidate}' -> ${EXPORT_DIR}"
+            qmd collection add "${EXPORT_DIR}" --name "${candidate}" || true
+            qmd collection update-cmd "${candidate}" "${want_update}" || true
+            resolved="${candidate}"
+            break
         fi
+        if [ "${existing}" = "${EXPORT_DIR}" ]; then
+            # Ours from an earlier run. Keep the update command current, since the
+            # exporter moves if the trigger directory does.
+            if [ "$(collection_field "${candidate}" Update)" != "${want_update}" ]; then
+                echo "call-summary-qmd: refreshing update command on '${candidate}'"
+                qmd collection update-cmd "${candidate}" "${want_update}" || true
+            fi
+            resolved="${candidate}"
+            break
+        fi
+        echo "call-summary-qmd: collection '${candidate}' points at ${existing}; trying the next name"
+    done
+
+    if [ -z "${resolved}" ]; then
+        echo "call-summary-qmd: '${COLLECTION}' and -1/-2/-3 all belong to other"
+        echo "  directories, so nothing was indexed. Set CALL_SUMMARY_QMD_COLLECTION"
+        echo "  to a free name. The summary is saved on the call regardless."
+        exit 0
     fi
+    COLLECTION="${resolved}"
     "${EXPORTER}" || true
     qmd update && qmd embed
     echo "call-summary-qmd: indexed into qmd collection '${COLLECTION}'"
