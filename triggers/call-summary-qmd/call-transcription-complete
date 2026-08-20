@@ -37,7 +37,7 @@ if [ "${1:-}" = "--index-only" ]; then
     if command -v tuple >/dev/null 2>&1; then
         i=0
         while [ "$i" -lt 15 ]; do
-            tuple transcription list --format json --limit -1 2>/dev/null \
+            tuple transcription list --format json --limit 10 2>/dev/null \
                 | TARGET_CALL="${TARGET_CALL}" /usr/bin/python3 -c 'import json, os, sys
 target = os.environ.get("TARGET_CALL") or ""
 try:

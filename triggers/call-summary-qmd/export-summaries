@@ -35,6 +35,16 @@ OUT = os.environ.get(
 )
 TUPLE = os.environ.get("TUPLE_BIN", "tuple")
 
+# How many of the most recent calls to export. Ten covers the case this runs in —
+# a call has just ended, and a couple more may have started and stopped while a
+# slow summary was still being written — while keeping each run cheap now that
+# nothing is ever pruned and re-exporting an unchanged call is a no-op.
+#
+# It does mean older calls are not revisited: a first install over an existing
+# history, or a summary added by hand to an old call, will not be picked up. Run
+# the exporter once with CALL_SUMMARY_QMD_LIMIT=-1 to backfill everything.
+LIMIT = os.environ.get("CALL_SUMMARY_QMD_LIMIT", "10")
+
 
 def bail(msg):
     print(f"export-summaries: {msg}; leaving existing exports untouched", file=sys.stderr)
@@ -87,13 +97,7 @@ def render(call):
 def main():
     try:
         proc = subprocess.run(
-            # --limit -1: the default is 100. A bounded list would silently stop
-            # covering older calls — on first install only the newest 100 would
-            # ever be indexed, and a summary added by hand to an older call would
-            # never be picked up. The read is one local SQLite query (~1 MB of
-            # JSON at 1000 calls), and unchanged files are not rewritten, so
-            # completeness costs approximately nothing.
-            [TUPLE, "transcription", "list", "--format", "json", "--limit", "-1"],
+            [TUPLE, "transcription", "list", "--format", "json", "--limit", LIMIT],
             capture_output=True, text=True, timeout=30,
         )
     except FileNotFoundError:

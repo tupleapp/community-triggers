@@ -46,6 +46,16 @@ The export is additive: it writes new summaries and updates changed ones, and ne
 anything — `TUPLE_QMD_OUT` may well point at a directory holding other notes. One consequence is
 that deleting a call in Tuple leaves its summary here. Remove the file yourself if that matters.
 
+Each run exports the ten most recent calls, which covers the call that just ended plus any that
+started and stopped while a slow summary was still being written. Older calls are not revisited, so
+if you install this over an existing call history — or write a summary onto an old call by hand —
+backfill once with:
+
+```bash
+CALL_SUMMARY_QMD_LIMIT=-1 ~/.tuple/triggers/call-summary-qmd/export-summaries
+qmd update && qmd embed
+```
+
 ## Requirements
 
 - macOS
@@ -68,6 +78,7 @@ needed to read the call and write the summary back.
 | --- | --- | --- |
 | `TUPLE_QMD_OUT` | `$XDG_DATA_HOME/tuple-summaries` (`~/.local/share/tuple-summaries`) | Where the exported markdown lives |
 | `CALL_SUMMARY_QMD_COLLECTION` | `tuple` | Name of the qmd collection |
+| `CALL_SUMMARY_QMD_LIMIT` | `10` | How many of the most recent calls to export. `-1` exports all of them |
 | `CALL_SUMMARY_QMD_DRY_RUN` | unset | Set to `1` to write the prompt and exit without running Claude |
 
 ## Troubleshooting
