@@ -39,8 +39,9 @@ searching. Full transcripts stay one command away:
 tuple transcription show <call-id>
 ```
 
-Everything stays on your machine: Tuple transcribes on-device, qmd indexes and embeds locally, and
-the exported summaries are plain markdown you can read or delete.
+Tuple transcribes on-device, and the exported summaries and qmd index stay on your machine as plain
+files you can read or delete. The full transcript and lifecycle metadata are sent through Claude
+Code to your configured model provider to produce the summary.
 
 The export is additive: it writes new summaries and updates changed ones, and never deletes
 anything — `TUPLE_QMD_OUT` may well point at a directory holding other notes. One consequence is

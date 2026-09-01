@@ -64,9 +64,9 @@ except Exception:
     # is nowhere useful to report that: this runs detached after the call ended,
     # and `tuple notifications` only posts to an *active* call (HTTP 410
     # otherwise). So rather than failing somewhere nobody looks, fall back to
-    # <name>-1, -2, -3. Matching on the configured path means a name picked on an
-    # earlier run is recognised as ours and reused, so this settles on one name
-    # instead of drifting upward.
+    # <name>-1, -2, -3. An ownership marker in the update command means a name
+    # picked on an earlier run is recognised as ours and reused, so this settles
+    # on one name without taking over another collection for the same directory.
     # `qmd collection show` exits non-zero for a name that does not exist yet,
     # which under `set -o pipefail` would fail the whole pipeline and, via
     # `set -e`, kill the script at the very assignment meant to detect "free
@@ -76,23 +76,57 @@ except Exception:
             | sed -n "s/^[[:space:]]*$2:[[:space:]]*//p" | head -1
     }
 
-    want_update="'${EXPORTER}' || true"
+    # Persist the resolved output directory because this hook usually runs later,
+    # outside the trigger's environment. The marker lets future versions recognise
+    # their own hook without treating a matching directory as proof of ownership.
+    printf -v quoted_export_dir '%q' "${EXPORT_DIR}"
+    printf -v quoted_exporter '%q' "${EXPORTER}"
+    want_update=": tuple-call-summary-qmd; TUPLE_QMD_OUT=${quoted_export_dir} ${quoted_exporter} || true"
+    legacy_update="'${EXPORTER}' || true"
     resolved=""
     for candidate in "${COLLECTION}" "${COLLECTION}-1" "${COLLECTION}-2" "${COLLECTION}-3"; do
         existing=$(collection_field "${candidate}" Path)
         if [ -z "${existing}" ]; then
             echo "call-summary-qmd: registering qmd collection '${candidate}' -> ${EXPORT_DIR}"
-            qmd collection add "${EXPORT_DIR}" --name "${candidate}" || true
-            qmd collection update-cmd "${candidate}" "${want_update}" || true
-            resolved="${candidate}"
-            break
+            if ! qmd collection add "${EXPORT_DIR}" --name "${candidate}"; then
+                echo "call-summary-qmd: could not register '${candidate}'; trying the next name"
+                continue
+            fi
+            if ! qmd collection update-cmd "${candidate}" "${want_update}"; then
+                echo "call-summary-qmd: could not configure '${candidate}'; trying the next name"
+                continue
+            fi
+            if [ "$(collection_field "${candidate}" Path)" = "${EXPORT_DIR}" ] \
+                && [ "$(collection_field "${candidate}" Update)" = "${want_update}" ]; then
+                resolved="${candidate}"
+                break
+            fi
+            echo "call-summary-qmd: '${candidate}' changed during setup; trying the next name"
+            continue
         fi
         if [ "${existing}" = "${EXPORT_DIR}" ]; then
+            existing_update=$(collection_field "${candidate}" Update)
+            case "${existing_update}" in
+            *": tuple-call-summary-qmd;"*|"${legacy_update}")
+                ;;
+            *)
+                echo "call-summary-qmd: collection '${candidate}' uses this directory but has another updater; trying the next name"
+                continue
+                ;;
+            esac
             # Ours from an earlier run. Keep the update command current, since the
             # exporter moves if the trigger directory does.
-            if [ "$(collection_field "${candidate}" Update)" != "${want_update}" ]; then
+            if [ "${existing_update}" != "${want_update}" ]; then
                 echo "call-summary-qmd: refreshing update command on '${candidate}'"
-                qmd collection update-cmd "${candidate}" "${want_update}" || true
+                if ! qmd collection update-cmd "${candidate}" "${want_update}"; then
+                    echo "call-summary-qmd: could not refresh '${candidate}'; trying the next name"
+                    continue
+                fi
+            fi
+            if [ "$(collection_field "${candidate}" Path)" != "${EXPORT_DIR}" ] \
+                || [ "$(collection_field "${candidate}" Update)" != "${want_update}" ]; then
+                echo "call-summary-qmd: could not verify '${candidate}'; trying the next name"
+                continue
             fi
             resolved="${candidate}"
             break
