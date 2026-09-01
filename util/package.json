@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1053.0",
-    "@aws-sdk/lib-dynamodb": "^3.1053.0",
+    "@aws-sdk/client-dynamodb": "^3.1117.0",
+    "@aws-sdk/lib-dynamodb": "^3.1117.0",
     "ejs": "^5.0.2",
     "zod": "^4.4.3"
   }
