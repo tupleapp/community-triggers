@@ -2,7 +2,7 @@
 
 Launches [Claude Code](https://claude.com/claude-code) as a live **Karpman Drama Triangle** coach on your Tuple call when transcription starts.
 
-When `call-transcription-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness claude "<coaching purpose>"`. Connect resolves the call state, gives Claude a context prompt, and points it at the live transcript — the `COACH_PURPOSE` in the trigger adds the drama-triangle lens on top.
+When `call-capture-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness claude "<coaching purpose>"`. Connect resolves the call state, gives Claude a context prompt, and points it at the live transcript — the `COACH_PURPOSE` in the trigger adds the drama-triangle lens on top.
 
 ## What it does
 
@@ -28,7 +28,7 @@ Because the trigger hands off to `tuple connect`, there is nothing call-format-s
 
 ## Changing the coaching framing
 
-The coaching intent lives in one editable variable near the top of `call-transcription-started`:
+The coaching intent lives in one editable variable near the top of `call-capture-started`:
 
 ```bash
 COACH_PURPOSE="Watch my own lines for Karpman Drama Triangle patterns …"
@@ -38,7 +38,7 @@ Edit `COACH_PURPOSE` to adjust what the coach looks for, how noisy it is, or wha
 
 ## Choosing your terminal
 
-By default the trigger opens your system's default handler for `.command` files. To force a specific terminal, set `PREFERRED_TERM` at the top of `call-transcription-started` (or in the environment):
+By default the trigger opens your system's default handler for `.command` files. To force a specific terminal, set `PREFERRED_TERM` at the top of `call-capture-started` (or in the environment):
 
 ```bash
 PREFERRED_TERM="iterm"   # ghostty | iterm | alacritty | terminal
@@ -65,7 +65,7 @@ The trigger fires the next time call transcription starts.
 
 ## How it works
 
-`call-transcription-started` fires with no call-specific arguments. This trigger:
+`call-capture-started` fires with no call-specific arguments. This trigger:
 
 1. Creates a working directory per start, `${TMPDIR:-/tmp}/tuple-coach-drama-triangle-claude/<timestamp>-<pid>`.
 2. Writes the `COACH_PURPOSE` to a `coach-purpose.txt` sidecar file and an executable `launch-coach-drama-triangle-claude.command` wrapper into it.

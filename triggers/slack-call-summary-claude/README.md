@@ -12,7 +12,7 @@ It's a one-shot over the finished call — no `tuple connect`, nothing live to f
 - [Claude Code](https://claude.com/claude-code) installed so `claude` works in a new terminal
 - The `tuple` CLI on your interactive shell PATH (with `transcription` support)
   - Install it from the Tuple app: its Transcription settings have an **Install** button that links `tuple` onto your PATH.
-- A Slack MCP server or connector available to Claude Code. The **claude.ai Slack connector** works out of the box — verify with `claude mcp list` (you should see `claude.ai Slack: Connected`); connect it from [claude.ai](https://claude.ai) → Settings → Connectors, or run `/mcp` inside Claude Code. Any other Slack MCP works too, as long as its tools are allowed in your Claude Code permission settings (or you add its `mcp__<server>` rule to the allowlist in [call-transcription-complete](./call-transcription-complete)).
+- A Slack MCP server or connector available to Claude Code. The **claude.ai Slack connector** works out of the box — verify with `claude mcp list` (you should see `claude.ai Slack: Connected`); connect it from [claude.ai](https://claude.ai) → Settings → Connectors, or run `/mcp` inside Claude Code. Any other Slack MCP works too, as long as its tools are allowed in your Claude Code permission settings (or you add its `mcp__<server>` rule to the allowlist in [call-capture-complete](./call-capture-complete)).
 - Tuple transcription enabled for the call
 
 ## Installation
@@ -25,7 +25,7 @@ The trigger fires when call transcription completes.
 
 ## Configuration
 
-By default the summary is sent as a DM to yourself (the authenticated Slack user). To send to a different person or channel, edit the `SLACK_RECIPIENT=` line near the top of [call-transcription-complete](./call-transcription-complete):
+By default the summary is sent as a DM to yourself (the authenticated Slack user). To send to a different person or channel, edit the `SLACK_RECIPIENT=` line near the top of [call-capture-complete](./call-capture-complete):
 
 ```sh
 SLACK_RECIPIENT="${SLACK_RECIPIENT:-#my-channel}"     # a channel
@@ -37,7 +37,7 @@ Leave it empty (the default) to DM yourself. The environment variable form also 
 
 ## How it works
 
-`call-transcription-complete` fires with no call-specific arguments. This trigger:
+`call-capture-complete` fires with no call-specific arguments. This trigger:
 
 1. Writes `slack-call-summary-claude-prompt.md` into a working directory (`${TMPDIR:-/tmp}/tuple-slack-call-summary-claude/<timestamp>-<pid>`), including the configured recipient and all instructions.
 2. Headlessly launches a login zsh (`nohup zsh -lic`, so `claude` and `tuple` resolve from your normal PATH — no terminal window) that runs `claude -p` in that directory with the prompt on stdin and a scoped tool allowlist: `Read`, `Bash`, `Write(slack-call-summary-claude-failed.md)`, and `mcp__claude_ai_Slack`. In `-p` print mode any tool outside the allowlist is auto-denied — `Bash` lets Claude run the `tuple` CLI, and the Slack tool lets it send the message; nothing else.
@@ -45,7 +45,7 @@ Leave it empty (the default) to DM yourself. The environment variable form also 
 
 ## Troubleshooting
 
-- **Trigger not firing**: Check `/tmp/tuple-trigger-debug.log` — the banner `call-transcription-complete fired (slack-call-summary-claude)` appears each time the trigger runs.
+- **Trigger not firing**: Check `/tmp/tuple-trigger-debug.log` — the banner `call-capture-complete fired (slack-call-summary-claude)` appears each time the trigger runs.
 - **No Slack DM and no error**: Check `slack-call-summary-claude.log` in the working directory (printed at launch) for the Claude run output.
 - **Slack delivery failed**: Look for `slack-call-summary-claude-failed.md` in the working directory — it contains the composed message and the error.
 - **`claude not found` / `tuple not found`**: Make sure both are on your login-shell PATH (test with `zsh -lic 'which claude tuple'`).

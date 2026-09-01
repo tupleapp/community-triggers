@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# slack-call-summary-claude: when a Tuple transcription completes, run a headless
-# Claude that summarizes the call, writes the title + summary back onto the call
+# slack-call-summary-codex: when a Tuple transcription completes, run a headless
+# Codex that summarizes the call, writes the title + summary back onto the call
 # (so they show up in Tuple's Call History), and DMs the summary to Slack.
 #
 # No live-call machinery and no `tuple connect` — this is a one-shot. The trigger
-# writes a plain prompt and launches Claude headless; Claude finds the call,
+# writes a plain prompt and launches Codex headless; Codex finds the call,
 # reads its stored transcript with the `tuple` CLI, and does the work. The
-# transcription triggers receive no call-specific args, so Claude resolves the
+# transcription triggers receive no call-specific args, so Codex resolves the
 # call id itself.
 
 LOG=/tmp/tuple-trigger-debug.log
 {
-    printf '\n=== %s call-transcription-complete fired (slack-call-summary-claude) ===\n' "$(date -u +%FT%TZ)"
+    printf '\n=== %s call-capture-complete fired (slack-call-summary-codex) ===\n' "$(date -u +%FT%TZ)"
     printf 'cwd=%s pid=%s\n' "$(pwd)" "$$"
 } >> "$LOG" 2>&1
 trap 'printf "exit status=%s on line %s\n" "$?" "$LINENO" >> "$LOG"' EXIT
@@ -24,9 +24,9 @@ exec >>"$LOG" 2>&1
 SLACK_RECIPIENT="${SLACK_RECIPIENT:-}"
 
 TMP="${TMPDIR:-/tmp}"
-WORKDIR="${TMP%/}/tuple-slack-call-summary-claude/$(date +%Y%m%dT%H%M%S)-$$"
-PROMPT_FILE="${WORKDIR}/slack-call-summary-claude-prompt.md"
-LOG_FILE="${WORKDIR}/slack-call-summary-claude.log"
+WORKDIR="${TMP%/}/tuple-slack-call-summary-codex/$(date +%Y%m%dT%H%M%S)-$$"
+PROMPT_FILE="${WORKDIR}/slack-call-summary-codex-prompt.md"
+LOG_FILE="${WORKDIR}/slack-call-summary-codex.log"
 mkdir -p "${WORKDIR}"
 
 {
@@ -73,7 +73,7 @@ Record the summary on the call itself so it's there in Tuple's Call History:
 
 ## Deliver to Slack
 
-Send the composed message using your Slack tools — typically a `slack_send_message` tool from whatever Slack MCP server or connector you have. Resolve the recipient with your Slack user/channel search tools first if needed.
+Send the composed message using your Slack tools — typically a `slack_send_message` tool from whatever Slack connector you have. Resolve the recipient with your Slack user/channel search tools first if needed.
 
 PROMPT
     if [ -n "${SLACK_RECIPIENT}" ]; then
@@ -85,26 +85,34 @@ PROMPT
 
 Send exactly one message. Do not post to any public channel unless that is the configured recipient. If the recipient cannot be resolved to an unambiguous match, treat that as a delivery failure rather than guessing. After a successful send, print the message timestamp/permalink and stop.
 
-If the Slack tools are unavailable or every send attempt fails, write the composed message to slack-call-summary-claude-failed.md in the current directory, print the error, and exit — do not pretend it was delivered.
+If the Slack tools are unavailable or every send attempt fails, write the composed message to slack-call-summary-codex-failed.md in the current directory, print the error, and exit — do not pretend it was delivered.
 PROMPT
 } > "${PROMPT_FILE}"
 
-if [ "${SLACK_CALL_SUMMARY_CLAUDE_DRY_RUN:-}" = "1" ]; then
-    echo "slack-call-summary-claude: dry run generated ${PROMPT_FILE}"
+if [ "${SLACK_CALL_SUMMARY_CODEX_DRY_RUN:-}" = "1" ]; then
+    echo "slack-call-summary-codex: dry run generated ${PROMPT_FILE}"
     exit 0
 fi
 
-# A login zsh resolves `claude` and `tuple` from the user's normal PATH (Tuple's
-# trigger host doesn't have them), and the prompt arrives on stdin. Bash lets
-# Claude run the `tuple` CLI; mcp__claude_ai_Slack pre-allows the claude.ai Slack
-# connector so the send works out of the box (any other Slack MCP works too as
-# long as its tools are allowed in your Claude Code settings, or add its
-# mcp__<server> rule below).
+# A login zsh resolves `codex` and `tuple` from the user's normal PATH (Tuple's
+# trigger host doesn't have them), and the prompt arrives on stdin (`-`).
+# --dangerously-bypass-approvals-and-sandbox is required for the Slack send:
+# codex exec auto-cancels approval-gated connector tools ("user cancelled MCP
+# tool call") because there is no user to approve them, and as of codex 0.139
+# no apps.*/mcp_servers.* approval_mode config suppresses that in exec mode
+# (see openai/codex#24135). The prompt is fixed and only reads stored call
+# data, but this does run Codex unsandboxed — remove the trigger if that
+# trade-off doesn't work for you.
 nohup /bin/zsh -lic '
     cd "$1" || exit 1
-    command -v claude >/dev/null 2>&1 || { echo "slack-call-summary-claude: claude not found on login-shell PATH"; exit 127; }
-    command -v tuple  >/dev/null 2>&1 || { echo "slack-call-summary-claude: tuple not found on login-shell PATH"; exit 127; }
-    exec claude -p --allowed-tools "Read" "Bash" "Write(slack-call-summary-claude-failed.md)" "mcp__claude_ai_Slack"
+    command -v codex >/dev/null 2>&1 || { echo "slack-call-summary-codex: codex not found on login-shell PATH"; exit 127; }
+    command -v tuple  >/dev/null 2>&1 || { echo "slack-call-summary-codex: tuple not found on login-shell PATH"; exit 127; }
+    exec codex exec \
+        --cd "$1" \
+        --skip-git-repo-check \
+        --dangerously-bypass-approvals-and-sandbox \
+        --output-last-message "$1/slack-call-summary-codex-last-message.md" \
+        -
 ' zsh "${WORKDIR}" < "${PROMPT_FILE}" >> "${LOG_FILE}" 2>&1 &
 disown
-echo "slack-call-summary-claude: launched headless summary (pid $!) in ${WORKDIR}"
+echo "slack-call-summary-codex: launched headless summary (pid $!) in ${WORKDIR}"
