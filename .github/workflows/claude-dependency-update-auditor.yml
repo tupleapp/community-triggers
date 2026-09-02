@@ -51,7 +51,7 @@ jobs:
               echo "::error::pr_number must be a positive integer."
               exit 1
             fi
-            prs=$(jq --argjson requested "$REQUESTED_PR" \
+            prs=$(jq -c --argjson requested "$REQUESTED_PR" \
               'map(select(. == $requested))' <<< "$prs")
           fi
 
