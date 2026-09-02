@@ -150,13 +150,13 @@ fi
 # --- first phase: build the prompt and launch Claude ------------------------
 
 # The call this fired for. Tuple 3.2.0 does set TUPLE_TRIGGER_CALL_ID on
-# call-transcription-complete, so prefer it over letting Claude guess: by the time
+# call-capture-complete, so prefer it over letting Claude guess: by the time
 # Claude starts, the user may already be in another call and `tuple call current`
 # would resolve to the wrong one. Discovery stays as a fallback.
 CALL="${1:-${TUPLE_TRIGGER_CALL_ID:-}}"
 
 {
-    printf '\n=== %s call-transcription-complete fired (call-summary-qmd) ===\n' "$(date -u +%FT%TZ)"
+    printf '\n=== %s call-capture-complete fired (call-summary-qmd) ===\n' "$(date -u +%FT%TZ)"
     printf 'cwd=%s pid=%s\n' "$(pwd)" "$$"
 } >> "$LOG" 2>&1
 trap 'printf "exit status=%s on line %s\n" "$?" "$LINENO" >> "$LOG"' EXIT
