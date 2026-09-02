@@ -1,0 +1,21 @@
+name: Workflow Validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/**"
+
+jobs:
+  validate:
+    name: Validate workflows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Lint GitHub Actions workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+      - name: Test deterministic dependency-review delivery
+        run: node --test .github/scripts/post-dependency-review.test.mjs
