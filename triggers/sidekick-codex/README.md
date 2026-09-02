@@ -2,7 +2,7 @@
 
 Launches [Codex](https://developers.openai.com/codex/cli/) as a live companion on your Tuple call when transcription starts.
 
-When `call-transcription-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness codex`. Connect resolves the call state, gives Codex a context prompt, and points it at the live transcript — so Codex catches up on everything said so far, then watches the call as it happens and acts as a sharp third pair.
+When `call-capture-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness codex`. Connect resolves the call state, gives Codex a context prompt, and points it at the live transcript — so Codex catches up on everything said so far, then watches the call as it happens and acts as a sharp third pair.
 
 ## What it does
 
@@ -17,7 +17,7 @@ Because the trigger just hands off to `tuple connect`, there's nothing call-form
 
 ## Choosing your terminal
 
-By default the trigger opens your system's default handler for `.command` files. To force a specific terminal, set `PREFERRED_TERM` at the top of `call-transcription-started` (or in the environment):
+By default the trigger opens your system's default handler for `.command` files. To force a specific terminal, set `PREFERRED_TERM` at the top of `call-capture-started` (or in the environment):
 
 ```bash
 PREFERRED_TERM="iterm"   # ghostty | iterm | alacritty | terminal
@@ -43,7 +43,7 @@ The trigger fires the next time call transcription starts.
 
 ## How it works
 
-`call-transcription-started` fires with no call-specific arguments. This trigger:
+`call-capture-started` fires with no call-specific arguments. This trigger:
 
 1. Creates a working directory per start, `${TMPDIR:-/tmp}/tuple-sidekick-codex/<timestamp>-<pid>`.
 2. Writes an executable `launch-sidekick-codex.command` wrapper into it.

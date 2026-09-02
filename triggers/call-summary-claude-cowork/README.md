@@ -4,7 +4,7 @@ A [Tuple](https://tuple.app) trigger that opens [Claude Cowork](https://www.anth
 
 ## What it does
 
-When `call-transcription-complete` fires, the trigger opens `claude://cowork/new` with a summary prompt. Cowork (which has access to the `tuple` CLI through the desktop app) then:
+When `call-capture-complete` fires, the trigger opens `claude://cowork/new` with a summary prompt. Cowork (which has access to the `tuple` CLI through the desktop app) then:
 
 - Finds the call — `tuple call current` if you're still on it, otherwise the most recent call from `tuple transcription list`.
 - Reads the transcript — `tuple transcription show <id>` (with `--with-events` for join/leave/screen events).

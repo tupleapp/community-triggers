@@ -2,7 +2,7 @@
 
 Opens [Claude Code](https://claude.com/claude-code) in a terminal when Tuple transcription completes, to summarize the call.
 
-When `call-transcription-complete` fires, this trigger writes a focused prompt and opens your preferred terminal running Claude. Claude finds the call, reads its stored transcript with the `tuple` CLI, produces a concise summary (decisions, action items, open questions), **writes a title and summary back onto the call** so they show up in Tuple's Call History, and stays available for transcript-backed follow-up questions.
+When `call-capture-complete` fires, this trigger writes a focused prompt and opens your preferred terminal running Claude. Claude finds the call, reads its stored transcript with the `tuple` CLI, produces a concise summary (decisions, action items, open questions), **writes a title and summary back onto the call** so they show up in Tuple's Call History, and stays available for transcript-backed follow-up questions.
 
 This is not a live-call companion (that's the sidekick triggers), so there's no `tuple connect` and nothing to follow in real time — it's a one-shot over the finished call.
 
@@ -34,7 +34,7 @@ The trigger fires when call transcription completes.
 
 ## How it works
 
-`call-transcription-complete` fires with no call-specific arguments. This trigger:
+`call-capture-complete` fires with no call-specific arguments. This trigger:
 
 1. Creates a working directory, `${TMPDIR:-/tmp}/tuple-call-summary-claude/<timestamp>-<pid>`, and writes the prompt (`call-summary-claude-prompt.md`) into it.
 2. Writes an executable `launch-call-summary-claude.command` wrapper there.

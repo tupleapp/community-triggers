@@ -28,7 +28,7 @@ The trigger fires when call transcription completes.
 
 ## Configuration
 
-By default the summary is sent as a DM to yourself (the authenticated Slack user). To send to a different person or channel, edit the `SLACK_RECIPIENT=` line near the top of [call-transcription-complete](./call-transcription-complete):
+By default the summary is sent as a DM to yourself (the authenticated Slack user). To send to a different person or channel, edit the `SLACK_RECIPIENT=` line near the top of [call-capture-complete](./call-capture-complete):
 
 ```sh
 SLACK_RECIPIENT="${SLACK_RECIPIENT:-#my-channel}"     # a channel
@@ -40,7 +40,7 @@ Leave it empty (the default) to DM yourself. The environment variable form also 
 
 ## How it works
 
-`call-transcription-complete` fires with no call-specific arguments. This trigger:
+`call-capture-complete` fires with no call-specific arguments. This trigger:
 
 1. Writes `slack-call-summary-codex-prompt.md` into a working directory (`${TMPDIR:-/tmp}/tuple-slack-call-summary-codex/<timestamp>-<pid>`), including the configured recipient and all instructions.
 2. Headlessly launches a login zsh (`nohup zsh -lic`, so `codex` and `tuple` resolve from your normal PATH — no terminal window) that runs `codex exec` in that directory with the prompt on stdin and `--dangerously-bypass-approvals-and-sandbox` (required for unattended Slack connector use). `tuple` in `Bash` lets Codex read the call; the Slack connector lets it send the message.
@@ -54,7 +54,7 @@ The prompt is fixed, but the transcript it reads is not: call transcripts are sp
 
 ## Troubleshooting
 
-- **Trigger not firing**: Check `/tmp/tuple-trigger-debug.log` — the banner `call-transcription-complete fired (slack-call-summary-codex)` appears each time the trigger runs.
+- **Trigger not firing**: Check `/tmp/tuple-trigger-debug.log` — the banner `call-capture-complete fired (slack-call-summary-codex)` appears each time the trigger runs.
 - **No Slack DM and no error**: Check `slack-call-summary-codex.log` in the working directory (printed at launch) for the Codex run output.
 - **Slack delivery failed**: Look for `slack-call-summary-codex-failed.md` in the working directory — it contains the composed message and the error. Also check `slack-call-summary-codex-last-message.md` for the final Codex agent message.
 - **`codex not found` / `tuple not found`**: Make sure both are on your login-shell PATH (test with `zsh -lic 'which codex tuple'`).

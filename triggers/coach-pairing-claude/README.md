@@ -2,11 +2,11 @@
 
 Launches [Claude Code](https://claude.com/claude-code) as a live pairing coach on your Tuple call when transcription starts.
 
-When `call-transcription-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness claude "<coaching purpose>"`. Connect resolves the call state, gives Claude a context prompt, and points it at the live transcript — so Claude catches up on everything said so far, then watches the call as it happens as an active pairing coach.
+When `call-capture-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness claude "<coaching purpose>"`. Connect resolves the call state, gives Claude a context prompt, and points it at the live transcript — so Claude catches up on everything said so far, then watches the call as it happens as an active pairing coach.
 
 ## What it does
 
-`tuple connect` brings Claude into the call and tells it how to follow along. The `COACH_PURPOSE` string (set near the top of `call-transcription-started`) steers Claude toward pairing-coach behavior on top of connect's base prompt:
+`tuple connect` brings Claude into the call and tells it how to follow along. The `COACH_PURPOSE` string (set near the top of `call-capture-started`) steers Claude toward pairing-coach behavior on top of connect's base prompt:
 
 **During the call:**
 
@@ -25,11 +25,11 @@ When `call-transcription-started` fires, this trigger opens your preferred termi
 
 ## Tuning the coaching
 
-The entire coaching framing lives in the `COACH_PURPOSE` variable near the top of `call-transcription-started`. Edit it there to change what the coach watches for, how it intervenes, or what the retro covers — no other files need to change.
+The entire coaching framing lives in the `COACH_PURPOSE` variable near the top of `call-capture-started`. Edit it there to change what the coach watches for, how it intervenes, or what the retro covers — no other files need to change.
 
 ## Choosing your terminal
 
-By default the trigger opens your system's default handler for `.command` files. To force a specific terminal, set `PREFERRED_TERM` at the top of `call-transcription-started` (or in the environment):
+By default the trigger opens your system's default handler for `.command` files. To force a specific terminal, set `PREFERRED_TERM` at the top of `call-capture-started` (or in the environment):
 
 ```bash
 PREFERRED_TERM="iterm"   # ghostty | iterm | alacritty | terminal
@@ -55,7 +55,7 @@ The trigger fires the next time call transcription starts.
 
 ## How it works
 
-`call-transcription-started` fires with no call-specific arguments. This trigger:
+`call-capture-started` fires with no call-specific arguments. This trigger:
 
 1. Creates a working directory per start, `${TMPDIR:-/tmp}/tuple-coach-pairing-claude/<timestamp>-<pid>`.
 2. Writes the `COACH_PURPOSE` to a `coach-purpose.txt` sidecar file and an executable `launch-coach-pairing-claude.command` wrapper into it.

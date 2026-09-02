@@ -2,7 +2,7 @@
 
 Launches [Pi](https://pi.dev/) as an active live-call sidekick when Tuple transcription starts.
 
-When `call-transcription-started` fires, this trigger ships a small Pi extension into a working directory and opens a terminal that hands off to `tuple connect --harness pi`. Connect resolves call state and gives Pi a context prompt; the bundled extension follows the call in the background.
+When `call-capture-started` fires, this trigger ships a small Pi extension into a working directory and opens a terminal that hands off to `tuple connect --harness pi`. Connect resolves call state and gives Pi a context prompt; the bundled extension follows the call in the background.
 
 > **Requires a Tuple build whose `tuple` CLI exposes** `connect --harness` and `transcription show`. If your `tuple` CLI doesn't have them yet, this trigger won't work.
 
@@ -36,7 +36,7 @@ The trigger fires the next time call transcription starts.
 
 ## How it works
 
-`call-transcription-started` fires with no call-specific arguments. This trigger:
+`call-capture-started` fires with no call-specific arguments. This trigger:
 
 1. Creates a working directory per start, `${TMPDIR:-/tmp}/tuple-pi-sidekick/<timestamp>-<pid>`.
 2. Copies `tuple-call-sidekick.ts` into `.pi/extensions/` there. Pi auto-discovers `.pi/extensions/*.ts` from its working directory, so the extension is active the moment Pi starts.
