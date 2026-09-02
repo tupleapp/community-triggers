@@ -6,7 +6,7 @@ and it captures whatever personal conversation happened around the work; the
 summary is the part worth searching. Full transcripts stay one command away with
 `tuple transcription show <call-id>`.
 
-Invoked by call-transcription-complete, and again by qmd itself before every
+Invoked by call-capture-complete, and again by qmd itself before every
 re-index (registered as the collection's update command), so the export is
 always current without anything being scheduled.
 

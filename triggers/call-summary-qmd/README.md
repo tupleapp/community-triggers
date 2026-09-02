@@ -10,7 +10,7 @@ local indexing. Nothing opens and nothing waits for input.
 
 ## What it does
 
-When `call-transcription-complete` fires, the trigger writes a prompt and launches Claude headless.
+When `call-capture-complete` fires, the trigger writes a prompt and launches Claude headless.
 Claude then:
 
 - Finds the call — `tuple call current` if you're still on it, otherwise the most recent call from
