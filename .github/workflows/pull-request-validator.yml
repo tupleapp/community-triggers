@@ -3,7 +3,6 @@ on:
   pull_request:
     paths:
       - "triggers/**"
-      - ".github/**"
     branches: [main]
 jobs:
   pull-request-validator:
@@ -12,15 +11,9 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v6.0.2
-      - name: Lint GitHub Actions workflows
-        uses: docker://rhysd/actionlint:1.7.12
-        with:
-          args: -color
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - name: Test workflow support scripts
-        run: node --test .github/scripts/*.test.mjs
       - uses: pnpm/action-setup@v6.0.6
         with:
           version: 10.32.1

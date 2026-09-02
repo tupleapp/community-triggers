@@ -42,10 +42,6 @@ module.exports = async function pullRequestCommenter({ github, context }) {
     fs.readFileSync("validation-results.json")
   );
 
-  if (results.length === 0) {
-    return;
-  }
-
   await upsertComment({
     github,
     context,

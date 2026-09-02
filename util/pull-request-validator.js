@@ -5,6 +5,11 @@ const extractChangedTriggers = require("./support/extract-changed-triggers");
 module.exports = async function validatePullRequest({ github, context, core }) {
   const changedTriggers = await extractChangedTriggers({ github, context });
 
+  if (changedTriggers.length === 0) {
+    core.warning("No triggers changed, nothing to do");
+    return;
+  }
+
   const validationResults = changedTriggers.map((trigger) => ({
     trigger,
     ...validateTrigger(trigger),
@@ -21,11 +26,6 @@ module.exports = async function validatePullRequest({ github, context, core }) {
   );
 
   writeFileSync("validation-results.json", output, "utf-8");
-
-  if (changedTriggers.length === 0) {
-    core.info("No triggers changed, nothing to validate");
-    return;
-  }
 
   const allSucceeded = validationResults.every((r) => r.success);
 
