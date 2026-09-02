@@ -1,6 +1,6 @@
 {
   "name": "Call Summary - Copilot",
-  "description": "When Tuple transcription completes, opens GitHub Copilot CLI in a terminal to summarize the call (read via the `tuple` CLI), write a title and summary back onto the call, and stay available for follow-up questions.",
+  "description": "When Tuple Capture completes, opens GitHub Copilot CLI in a terminal to summarize the triggering recording, write a title and summary back onto the call, and stay available for follow-up questions.",
   "category": "Call Summary",
   "platforms": ["macos"],
   "language": "bash"

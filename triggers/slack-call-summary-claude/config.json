@@ -1,6 +1,6 @@
 {
   "name": "Slack Call Summary - Claude",
-  "description": "When Tuple transcription completes, headlessly runs Claude Code to summarize the call (read via the `tuple` CLI), write a title and summary back onto the call, and DM the summary to Slack.",
+  "description": "When Tuple Capture completes, headlessly runs Claude Code to summarize the triggering recording, write a title and summary back onto the call, and DM the summary to Slack.",
   "category": "Call Summary",
   "platforms": ["macos"],
   "language": "bash"

@@ -1,6 +1,6 @@
 {
   "name": "Sidekick - Copilot",
-  "description": "Launches GitHub Copilot CLI as a live call companion when Tuple transcription starts. Opens a terminal running `tuple connect --harness copilot`; connect's prompt drives catching up on the transcript and following the call live.",
+  "description": "Launches GitHub Copilot CLI as a live call companion when Tuple Capture starts. Opens a terminal running `tuple connect --harness copilot`; connect's prompt drives catching up on the Capture and following the call live.",
   "category": "Sidekick",
   "platforms": ["macos"],
   "language": "bash"

@@ -1,27 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sidekick-copilot: when Tuple transcription starts, launch Copilot as a live
-# call companion.
-#
-# Everything about following the call — catching up on what's been said, watching
-# the live transcript, and the context prompt — is delegated to
-# `tuple connect --harness copilot`. The transcription triggers receive no
-# call-specific args, so this trigger just opens a terminal in a fresh working
-# directory and hands off to connect; connect's prompt drives the rest, so the
-# trigger never needs to change when the call format or prompt does.
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?sidekick-copilot requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?sidekick-copilot requires TUPLE_TRIGGER_RECORDING_ID}"
 
 # Set your preferred terminal here, or leave empty to use your default handler
 # for .command files. One of: ghostty | iterm | alacritty | terminal
 PREFERRED_TERM="${PREFERRED_TERM:-}"
 
-# A fresh working directory per transcription-start (timestamp + this trigger's
-# PID) means stopping and restarting transcription spawns a new companion while
-# older ones keep running — no dedup.
 TMP="${TMPDIR:-/tmp}"
 WORKDIR="${TMP%/}/tuple-sidekick-copilot/$(date +%Y%m%dT%H%M%S)-$$"
 LAUNCHER_FILE="${WORKDIR}/launch-sidekick-copilot.command"
 mkdir -p "${WORKDIR}"
+
+printf 'export TUPLE_TRIGGER_CALL_ID=%q\nexport TUPLE_TRIGGER_RECORDING_ID=%q\n' \
+    "${CALL_ID}" "${RECORDING_ID}" > "${WORKDIR}/trigger-context.sh"
 
 # The launcher runs as a login-interactive zsh so `tuple` and `copilot` resolve from
 # the same PATH you get in a fresh terminal.
@@ -33,6 +26,7 @@ echo 'Connecting Copilot to the call...'
 echo
 
 cd "${0:A:h}" || exit 1
+source "${0:A:h}/trigger-context.sh"
 
 if ! command -v tuple >/dev/null 2>&1; then
     echo "tuple was not found on your interactive shell PATH."

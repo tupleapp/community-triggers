@@ -12,6 +12,13 @@ You can quickly set up a new trigger using the generator provided in this reposi
 scripts/generate-trigger
 ```
 
+## Tuple compatibility
+
+Triggers that use the Tuple CLI require a build containing both the canonical
+CLI at `tupleapp/app@4a587f47e6` and the `call-capture-*` event rename from
+`tupleapp/app#4033`. No released build contains both yet; see
+[CHANGELOG.md](CHANGELOG.md) for the publication gate.
+
 ## Contributing
 
 Please follow the guidance outlined [here](https://tuple.app/triggers/docs/submitting-your-trigger) to submit a new

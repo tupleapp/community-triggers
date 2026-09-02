@@ -1,21 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sidekick-pi: when Tuple transcription starts, launch Pi as a live-call sidekick.
-#
-# Joining call state and building the context prompt are delegated to
-# `tuple connect --harness pi`. On top of that, this trigger ships a small Pi
-# extension (`tuple-call-sidekick.ts`) into a working directory, where Pi auto-loads
-# it: the extension follows the live transcript in the background (via
-# `tuple transcription show`), surfaces the watch state on Pi's toolbar, and adds a
-# set_watch_mode tool.
-#
-# The transcription triggers receive no call-specific args, so the working
-# directory is created under the temp dir, unique per transcription-start
-# (timestamp + this trigger's PID). A fresh directory each time means stopping and
-# restarting transcription in one call spawns a new sidekick while older ones keep
-# running and stay queryable — no dedup. The extension resolves the current call
-# from the daemon, so the trigger itself needs no call id.
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?sidekick-pi requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?sidekick-pi requires TUPLE_TRIGGER_RECORDING_ID}"
 
 # Set your preferred terminal here, or leave empty to use your default handler
 # for .command files. One of: ghostty | iterm | alacritty | terminal
@@ -29,6 +16,9 @@ LAUNCHER_FILE="${WORKDIR}/launch-pi-sidekick.command"
 # automatically at startup.
 EXTENSION_DIR="${WORKDIR}/.pi/extensions"
 mkdir -p "${EXTENSION_DIR}"
+
+printf 'export TUPLE_TRIGGER_CALL_ID=%q\nexport TUPLE_TRIGGER_RECORDING_ID=%q\n' \
+    "${CALL_ID}" "${RECORDING_ID}" > "${WORKDIR}/trigger-context.sh"
 
 TRIGGER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 EXTENSION_SRC="${TRIGGER_DIR}/tuple-call-sidekick.ts"
@@ -52,6 +42,7 @@ PID_FILE="${SCRIPT_DIR}/pi-sidekick.pid"
 
 echo $$ > "${PID_FILE}"
 cd "${SCRIPT_DIR}" || exit 1
+source "${SCRIPT_DIR}/trigger-context.sh"
 
 if ! command -v tuple >/dev/null 2>&1; then
     echo "tuple was not found on your interactive shell PATH."

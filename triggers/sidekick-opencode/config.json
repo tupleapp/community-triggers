@@ -1,6 +1,6 @@
 {
   "name": "Sidekick - OpenCode",
-  "description": "Launches OpenCode as a live call companion when Tuple transcription starts. Opens a terminal running `tuple connect --harness opencode`, which gives OpenCode the call context and points it at the live transcript.",
+  "description": "Launches OpenCode as a live call companion when Tuple Capture starts. Opens a terminal running `tuple connect --harness opencode`, which gives OpenCode the call context and points it at the live Capture.",
   "category": "Sidekick",
   "platforms": ["macos"],
   "language": "bash"

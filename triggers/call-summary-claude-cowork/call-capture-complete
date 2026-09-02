@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# call-summary-claude-cowork: when a Tuple transcription completes, open Claude
-# Cowork with a prefilled prompt to summarize the call — Cowork then reads the
-# call with the `tuple` CLI (the desktop app has CLI access) and writes a title
-# and summary back onto the call (Tuple's Call History).
-#
-# The transcription triggers receive no call-specific args, so the prompt has
-# Cowork resolve the call id itself; no artifact directory is attached.
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?call-summary-claude-cowork requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?call-summary-claude-cowork requires TUPLE_TRIGGER_RECORDING_ID}"
 
 urlencode() {
     local string="${1}"
@@ -30,15 +25,19 @@ urlencode() {
 }
 
 PROMPT=$(cat <<'PROMPT'
-A Tuple pair-programming call just finished, and you've been asked to summarize it.
+A Tuple pair-programming call just finished, and you have been asked to summarize it.
 
-## Find the call
-
-Get the call id with the `tuple` CLI: run `tuple call current` if you're still on the call, otherwise take the most recent call from `tuple transcription list` (it lists stored calls newest first).
+## Use the triggering Capture session
+PROMPT
+)
+PROMPT+=$(printf '\nCall ID: `%s`\nRecording ID: `%s`\n\nDo not discover another call or recording.\n' "${CALL_ID}" "${RECORDING_ID}")
+PROMPT+=$(cat <<'PROMPT'
 
 ## Read it
 
-`tuple transcription show <id>` prints the full transcript with speaker names. Add `--with-events` if join/leave/screen events would help anchor decisions.
+This is a transcript-only summary, so read only speech and chat from the recording ID above:
+
+    tuple capture show --recording <recording-id-above> --exclude events,content
 
 ## Summarize
 
@@ -53,10 +52,9 @@ Do not invent owners, decisions, or commitments. Use direct quotes only when the
 
 ## Write it back to the call
 
-Record the summary on the call itself so it's there in Tuple's Call History:
+Record the summary on the call itself so it is there in Tuple Call History:
 
-    tuple transcription set-title <id> "<a short, specific title for the whole call>"
-    tuple transcription set-summary <id> "<your summary>"
+    tuple call edit <call-id-above> --title "<a short, specific title for the whole call>" --summary "<your summary>"
 PROMPT
 )
 

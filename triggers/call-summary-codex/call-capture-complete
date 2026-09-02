@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# call-summary-codex: when a Tuple transcription completes, open Codex in a
-# terminal and have it summarize the call — then write the title and summary back
-# onto the call (so they show up in Tuple's Call History).
-#
-# This is not a live-call companion (that's the sidekick triggers), so there's no
-# `tuple connect` and nothing to follow in real time. The trigger just writes a
-# plain prompt and launches Codex; Codex finds the call, reads its stored
-# transcript with the `tuple` CLI, and does the work. The transcription triggers
-# receive no call-specific args, so Codex resolves the call id itself — the
-# trigger needs no call id and no special PATH.
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?call-summary-codex requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?call-summary-codex requires TUPLE_TRIGGER_RECORDING_ID}"
 
 # Set your preferred terminal here, or leave empty to use your default handler
 # for .command files. One of: ghostty | iterm | alacritty | terminal
@@ -22,16 +14,21 @@ PROMPT_FILE="${WORKDIR}/call-summary-codex-prompt.md"
 LAUNCHER_FILE="${WORKDIR}/launch-call-summary-codex.command"
 mkdir -p "${WORKDIR}"
 
+printf 'export TUPLE_TRIGGER_CALL_ID=%q\nexport TUPLE_TRIGGER_RECORDING_ID=%q\n' \
+    "${CALL_ID}" "${RECORDING_ID}" > "${WORKDIR}/trigger-context.sh"
+
 cat > "${PROMPT_FILE}" <<'PROMPT'
 A Tuple pair-programming call just finished, and you've been asked to summarize it. Other call participants do not see your output; you interact only with the user at this terminal.
 
-## Find the call
+## Use the triggering Capture session
 
-Get the call id with the `tuple` CLI: run `tuple call current` if you're still on the call, otherwise take the most recent call from `tuple transcription list` (it lists stored calls newest first).
+The trigger exports `TUPLE_TRIGGER_CALL_ID` and `TUPLE_TRIGGER_RECORDING_ID`. Do not discover another call or recording.
 
 ## Read it
 
-`tuple transcription show <id>` prints the full transcript with speaker names. Add `--with-events` if join/leave/screen events would help anchor decisions. (Use `--format json` if you'd rather parse the records; the default is human-readable.)
+This is a transcript-only summary, so read only speech and chat from the triggering recording:
+
+    tuple capture show --recording "$TUPLE_TRIGGER_RECORDING_ID" --exclude events,content
 
 ## Summarize
 
@@ -63,10 +60,7 @@ If the transcript is empty or too sparse to summarize, say so plainly.
 
 Once you have the summary, record it on the call itself so it's there in Tuple's Call History:
 
-    tuple transcription set-title <id> "<a short, specific title for the whole call>"
-    tuple transcription set-summary <id> "<your summary>"
-
-(If you have Tuple's MCP `set_call_title` and `set_call_summary` tools available, you may use those instead.)
+    tuple call edit "$TUPLE_TRIGGER_CALL_ID" --title "<a short, specific title for the whole call>" --summary "<your summary>"
 
 ## Stay available
 
@@ -85,6 +79,7 @@ echo
 SCRIPT_DIR="${0:A:h}"
 PROMPT_FILE="${SCRIPT_DIR}/call-summary-codex-prompt.md"
 cd "${SCRIPT_DIR}" || exit 1
+source "${SCRIPT_DIR}/trigger-context.sh"
 
 if ! command -v codex >/dev/null 2>&1; then
     echo "Codex was not found on your interactive shell PATH."

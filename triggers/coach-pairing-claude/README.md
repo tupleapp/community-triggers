@@ -1,6 +1,6 @@
 # Coach - Pairing - Claude
 
-Launches [Claude Code](https://claude.com/claude-code) as a live pairing coach on your Tuple call when transcription starts.
+Launches [Claude Code](https://claude.com/claude-code) as a live pairing coach on your Tuple call when Capture starts.
 
 When `call-capture-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness claude "<coaching purpose>"`. Connect resolves the call state, gives Claude a context prompt, and points it at the live transcript — so Claude catches up on everything said so far, then watches the call as it happens as an active pairing coach.
 
@@ -41,9 +41,9 @@ The terminal runs `launch-coach-pairing-claude.command`, whose `#!/bin/zsh -li` 
 
 - macOS
 - [Claude Code](https://claude.com/claude-code) installed so `claude` works in a new terminal
-- The `tuple` CLI on your interactive shell PATH (with `connect` and `transcription` support)
-  - Install it from the Tuple app: its Transcription settings have an **Install** button that links `tuple` onto your PATH.
-- Tuple transcription enabled for the call
+- The `tuple` CLI on your interactive shell PATH (with `connect` and `capture` support)
+  - Install it from the Tuple app: its Capture settings have an **Install** button that links `tuple` onto your PATH.
+- Tuple Capture enabled for the call
 
 ## Installation
 
@@ -51,18 +51,19 @@ Drop this directory into your Tuple triggers folder:
 
 `~/.tuple/triggers/coach-pairing-claude/`
 
-The trigger fires the next time call transcription starts.
+The trigger fires the next time call Capture starts.
 
 ## How it works
 
-`call-capture-started` fires with no call-specific arguments. This trigger:
+`call-capture-started` supplies the call and recording IDs through environment variables, not
+positional arguments. This trigger:
 
 1. Creates a working directory per start, `${TMPDIR:-/tmp}/tuple-coach-pairing-claude/<timestamp>-<pid>`.
-2. Writes the `COACH_PURPOSE` to a `coach-purpose.txt` sidecar file and an executable `launch-coach-pairing-claude.command` wrapper into it.
+2. Shell-quotes both IDs into `trigger-context.sh`, writes `COACH_PURPOSE` to a sidecar file, and writes an executable `launch-coach-pairing-claude.command` wrapper.
 3. Opens it in your preferred terminal via `open` (LaunchServices). No AppleScript and no direct binary launch, so it triggers no macOS accessibility prompt and no stray windows.
-4. The wrapper starts a login-interactive zsh, `cd`s to that directory, and runs `tuple connect --harness claude "$COACH_PURPOSE"`.
+4. The wrapper starts a login-interactive zsh, sources the trigger context, and runs `tuple connect --harness claude "$COACH_PURPOSE"`. Connect selects the live current session; the exact trigger IDs remain available to the launched agent and its Tuple commands.
 
-There is no dedup: each transcription-start gets its own directory, so stopping and restarting transcription spawns a fresh coach while older ones keep running.
+There is no dedup: each Capture start gets its own directory, so stopping and restarting Capture spawns a fresh coach while older ones keep running.
 
 For local testing without opening a terminal, set `COACH_PAIRING_CLAUDE_DRY_RUN=1`; it writes the launcher and exits.
 

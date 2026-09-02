@@ -1,6 +1,6 @@
 {
   "name": "Coach - Pairing - Claude",
-  "description": "Launches Claude Code as a live pairing coach via tuple connect when transcription starts. Claude watches for pairing anti-patterns — backseat driving, quiet pair, silent driver, no shared goal, no swaps or breaks — and surfaces a one-line move when confident. When the call ends, it writes a retro (pairing-evaluation.md) with talk-time balance, timestamped anti-pattern quotes, what worked, and one thing to practice next session.",
+  "description": "Launches Claude Code as a live pairing coach via tuple connect when Tuple Capture starts. Claude watches for pairing anti-patterns — backseat driving, quiet pair, silent driver, no shared goal, no swaps or breaks — and surfaces a one-line move when confident. When the call ends, it writes a retro (pairing-evaluation.md) with talk-time balance, timestamped anti-pattern quotes, what worked, and one thing to practice next session.",
   "category": "Real-Time Coach",
   "platforms": ["macos"],
   "language": "bash"

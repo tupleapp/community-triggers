@@ -1,6 +1,6 @@
 {
   "name": "Call Summary - Claude Cowork",
-  "description": "When Tuple transcription completes, opens Claude Cowork with a prefilled prompt; Cowork reads the call with the `tuple` CLI, writes a title and summary back onto the call, and drafts a summary.",
+  "description": "When Tuple Capture completes, opens Claude Cowork with a prefilled prompt; Cowork reads the triggering recording with the `tuple` CLI, writes a title and summary back onto the call, and drafts a summary.",
   "category": "Call Summary",
   "platforms": ["macos"],
   "language": "bash"
