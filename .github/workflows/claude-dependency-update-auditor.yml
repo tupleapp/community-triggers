@@ -10,6 +10,10 @@ on:
         required: true
         default: true
         type: boolean
+      pr_number:
+        description: Optionally limit a manual run to one open Dependabot PR
+        required: false
+        type: string
 
 concurrency:
   group: dependency-update-review
@@ -29,6 +33,7 @@ jobs:
         id: find
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_PR: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
 
@@ -40,6 +45,15 @@ jobs:
             --limit 100 \
             --json number,comments \
             --jq '[.[] | select(.comments | map(select(.author.login == "claude" or (.body | startswith("<!-- claude-dependabot-review -->")))) | length == 0) | .number]')
+
+          if [ -n "$REQUESTED_PR" ]; then
+            if [[ ! "$REQUESTED_PR" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::pr_number must be a positive integer."
+              exit 1
+            fi
+            prs=$(jq --argjson requested "$REQUESTED_PR" \
+              'map(select(. == $requested))' <<< "$prs")
+          fi
 
           echo "pr-numbers=$prs" >> "$GITHUB_OUTPUT"
           if [ "$prs" = "[]" ]; then
