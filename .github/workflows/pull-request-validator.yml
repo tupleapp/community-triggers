@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - "triggers/**"
+      - "util/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - ".github/workflows/pull-request-validator.yml"
     branches: [main]
 jobs:
   pull-request-validator:
@@ -19,6 +23,8 @@ jobs:
           version: 10.32.1
           run_install: |
             cwd: util
+      - run: pnpm test
+        working-directory: util
       - uses: actions/github-script@v9
         with:
           script: |

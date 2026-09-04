@@ -1,8 +1,8 @@
 # Call Summary - OpenCode
 
-Opens [OpenCode](https://opencode.ai/) in a terminal when Tuple transcription completes, to summarize the call.
+Opens [OpenCode](https://opencode.ai/) in a terminal when Tuple Capture completes, to summarize the call.
 
-When `call-capture-complete` fires, this trigger writes a focused prompt and opens your preferred terminal running OpenCode. OpenCode finds the call, reads its stored transcript with the `tuple` CLI, produces a concise summary (decisions, action items, open questions), **writes a title and summary back onto the call** so they show up in Tuple's Call History, and stays available for transcript-backed follow-up questions.
+When `call-capture-complete` fires, this trigger writes a focused prompt and opens your preferred terminal running OpenCode. OpenCode uses the triggering call and recording IDs, reads that recording's stored transcript with the `tuple` CLI, produces a concise summary (decisions, action items, open questions), **writes a title and summary back onto the call** so they show up in Tuple's Call History, and stays available for transcript-backed follow-up questions.
 
 This is not a live-call companion (that's the sidekick triggers), so there's no `tuple connect` and nothing to follow in real time — it's a one-shot over the finished call.
 
@@ -10,9 +10,9 @@ This is not a live-call companion (that's the sidekick triggers), so there's no 
 
 Guided by the prompt, OpenCode uses the `tuple` CLI:
 
-- `tuple call current` (if you're still on the call) or `tuple transcription list` (newest first) to find the call id.
-- `tuple transcription show <id>` to read the full transcript (add `--with-events` for join/leave/screen events).
-- `tuple transcription set-title <id> "…"` and `tuple transcription set-summary <id> "…"` to record the result on the call.
+- `TUPLE_TRIGGER_CALL_ID` and `TUPLE_TRIGGER_RECORDING_ID` select the call and exact Capture session that fired the trigger.
+- `tuple capture show --recording "$TUPLE_TRIGGER_RECORDING_ID" --exclude events,content` reads its transcript-only records.
+- `tuple call edit "$TUPLE_TRIGGER_CALL_ID" --title "…" --summary "…"` records the result on the call.
 
 Nothing is hard-coded about the model — OpenCode uses whatever you have configured.
 
@@ -20,9 +20,9 @@ Nothing is hard-coded about the model — OpenCode uses whatever you have config
 
 - macOS
 - [OpenCode](https://opencode.ai/) installed so `opencode` works in a new terminal
-- The `tuple` CLI on your interactive shell PATH (with `transcription` support)
-  - Install it from the Tuple app: its Transcription settings have an **Install** button that links `tuple` onto your PATH.
-- Tuple transcription enabled for the call
+- The `tuple` CLI on your interactive shell PATH (with `capture` support)
+  - Install it from the Tuple app: its Capture settings have an **Install** button that links `tuple` onto your PATH.
+- Tuple Capture enabled for the call
 
 ## Installation
 
@@ -30,11 +30,11 @@ Drop this directory into your Tuple triggers folder:
 
 `~/.tuple/triggers/call-summary-opencode/`
 
-The trigger fires when call transcription completes.
+The trigger fires when call Capture completes.
 
 ## How it works
 
-`call-capture-complete` fires with no call-specific arguments. This trigger:
+`call-capture-complete` supplies the call and recording IDs through environment variables, not positional arguments. This trigger:
 
 1. Creates a working directory, `${TMPDIR:-/tmp}/tuple-call-summary-opencode/<timestamp>-<pid>`, and writes the prompt (`call-summary-opencode-prompt.md`) into it.
 2. Writes an executable `launch-call-summary-opencode.command` wrapper there.

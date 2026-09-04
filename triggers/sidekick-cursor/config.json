@@ -1,6 +1,6 @@
 {
   "name": "Sidekick - Cursor",
-  "description": "Launches the Cursor CLI agent as a live call companion when Tuple transcription starts. It reads the transcript as the call happens, logs a running play-by-play, and chimes in when you say \"Cursor\".",
+  "description": "Launches the Cursor CLI agent as a live call companion when Tuple Capture starts. It reads the transcript as the call happens, logs a running play-by-play, and chimes in when you say \"Cursor\".",
   "category": "Sidekick",
   "platforms": ["macos"],
   "language": "bash"

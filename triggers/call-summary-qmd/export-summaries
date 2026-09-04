@@ -3,8 +3,8 @@
 
 Summaries only, deliberately. A raw transcript is mostly filler and cross-talk,
 and it captures whatever personal conversation happened around the work; the
-summary is the part worth searching. Full transcripts stay one command away with
-`tuple transcription show <call-id>`.
+summary is the part worth searching. All recordings for a call stay one command
+away with `tuple capture show <call-id> --exclude events,content`.
 
 Invoked by call-capture-complete, and again by qmd itself before every
 re-index (registered as the collection's update command), so the export is
@@ -51,6 +51,17 @@ def bail(msg):
     sys.exit(0)
 
 
+def structured_error(stderr):
+    for line in reversed((stderr or "").splitlines()):
+        try:
+            payload = json.loads(line)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("error"), str):
+            return payload["error"]
+    return "no structured error reported"
+
+
 def local(ts):
     if not ts:
         return None
@@ -87,14 +98,14 @@ def render(call):
     if summary:
         out += ["## Summary", "", summary, ""]
     out += ["## Full transcript", "", "Not indexed - retrieve on demand with:", "",
-            f"    tuple transcription show {cid}", ""]
+            f"    tuple capture show {cid} --exclude events,content", ""]
     return "\n".join(out)
 
 
 def main():
     try:
         proc = subprocess.run(
-            [TUPLE, "transcription", "list", "--format", "json", "--limit", LIMIT],
+            [TUPLE, "capture", "list", "--format", "json", "--limit", LIMIT],
             capture_output=True, text=True, timeout=30,
         )
     except FileNotFoundError:
@@ -102,7 +113,7 @@ def main():
     except (subprocess.SubprocessError, OSError) as exc:
         bail(f"could not run tuple ({exc})")
     if proc.returncode != 0:
-        bail(f"tuple exited {proc.returncode} ({(proc.stderr or '').strip()[:120]})")
+        bail(f"tuple exited {proc.returncode} ({structured_error(proc.stderr)})")
 
     try:
         calls = json.loads(proc.stdout or "[]")
@@ -120,12 +131,6 @@ def main():
     for call in calls:
         if not isinstance(call, dict) or not call.get("call_id"):
             continue
-        # Only calls carrying a title or summary. A transcript alone has nothing
-        # to search here — this indexes summaries, not transcripts — and a
-        # placeholder saying "no summary yet" is worse than an absence: it matches
-        # queries on its own boilerplate. Nothing summarises old calls
-        # retroactively, so those placeholders would never be filled in either.
-        # A summary added later is picked up on the next run inside the window.
         if not ((call.get("summary") or "").strip() or (call.get("title") or "").strip()):
             continue
         start = local(call.get("started_at"))
@@ -134,7 +139,7 @@ def main():
 
     for name, body in wanted.items():
         path = os.path.join(OUT, name)
-        try:  # write only when the content changed, so mtimes stay stable
+        try:
             with open(path) as handle:
                 if handle.read() == body:
                     continue

@@ -1,6 +1,6 @@
 {
   "name": "Sidekick - Pi",
-  "description": "When transcription starts, launches Pi as an active live-call companion via `tuple connect`. A small bundled extension follows the call in the background (so Pi stays responsive), summarizes as it goes, surfaces the watch state on Pi's toolbar, and adds a set_watch_mode tool. Requires a Tuple build whose CLI exposes connect and transcription show.",
+  "description": "When Tuple Capture starts, launches Pi as an active live-call companion via `tuple connect`. A bundled extension follows the triggering recording with `tuple capture next`, summarizes as it goes, surfaces the watch state on Pi's toolbar, and adds a set_watch_mode tool.",
   "category": "Sidekick",
   "platforms": ["macos"],
   "language": "bash"

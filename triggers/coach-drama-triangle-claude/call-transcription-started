@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Set your preferred terminal here, or leave empty to use your default handler
+# for .command files. One of: ghostty | iterm | alacritty | terminal
+PREFERRED_TERM="${PREFERRED_TERM:-}"
+
+# Edit this to change the coaching framing that connect passes to Claude.
+# Connect's base prompt already covers "follow the live call"; COACH_PURPOSE adds
+# the drama-triangle lens on top of it.
+COACH_PURPOSE="Watch my own lines for Karpman Drama Triangle patterns (Victim, Persecutor, Rescuer) and, when you spot one with high confidence, surface a single-line reframe toward the empowered alternative (Creator, Challenger, or Coach) as a quiet terminal nudge plus a best-effort desktop notification. Stay otherwise silent during the call. When the call ends, read the full transcript and write a brief drama-evaluation.md to the session directory covering per-participant role patterns, the 2-3 hook moments where the conversation tipped, and concrete phrases I could try differently with each teammate next time."
+
+TMP="${TMPDIR:-/tmp}"
+WORKDIR="${TMP%/}/tuple-coach-drama-triangle-claude/$(date +%Y%m%dT%H%M%S)-$$"
+LAUNCHER_FILE="${WORKDIR}/launch-coach-drama-triangle-claude.command"
+mkdir -p "${WORKDIR}"
+
+# Write COACH_PURPOSE to a sidecar file the launcher reads at runtime. Keeping it
+# out of the launcher script means the purpose can hold any characters — quotes,
+# apostrophes ("don't"), em-dashes — without ever breaking the launcher's shell
+# quoting. (Mirrors how the call-summary triggers stage their prompt file.)
+printf '%s' "${COACH_PURPOSE}" > "${WORKDIR}/coach-purpose.txt"
+
+# The launcher runs as a login-interactive zsh so `tuple` and `claude` resolve from
+# the same PATH you get in a fresh terminal.
+cat > "${LAUNCHER_FILE}" <<'SCRIPT'
+#!/bin/zsh -li
+printf '\e]0;Tuple Coach - Drama Triangle - Claude\a'
+clear
+echo 'Connecting Coach - Drama Triangle - Claude to the call...'
+echo
+
+SCRIPT_DIR="${0:A:h}"
+cd "${SCRIPT_DIR}" || exit 1
+COACH_PURPOSE="$(cat "${SCRIPT_DIR}/coach-purpose.txt")"
+
+if ! command -v tuple >/dev/null 2>&1; then
+    echo "tuple was not found on your interactive shell PATH."
+    echo "Make sure 'tuple' works in a new terminal, then run the trigger again."
+    echo
+    read '?Press return to close.'
+    exit 127
+fi
+
+exec tuple connect --harness claude "${COACH_PURPOSE}"
+SCRIPT
+
+chmod 0755 "${LAUNCHER_FILE}"
+
+# Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
+# so it triggers no macOS accessibility prompt and no stray empty windows.
+# With PREFERRED_TERM empty, the launcher opens in your default handler for
+# .command files (change it in Finder: right-click a .command > Open With >
+# your terminal > Change All). Set PREFERRED_TERM to force one for this trigger.
+# Ghostty, iTerm, and Terminal run an opened .command directly; Alacritty has no
+# document handler, so it is launched with `open -na ... --args -e`.
+launch_in_terminal() {
+    local file="$1"
+    case "${PREFERRED_TERM:-}" in
+    "") open "$file" ;;
+    ghostty) open -a "Ghostty" "$file" 2>/dev/null || open "$file" ;;
+    iterm) open -a "iTerm" "$file" 2>/dev/null || open "$file" ;;
+    terminal) open -a "Terminal" "$file" 2>/dev/null || open "$file" ;;
+    alacritty) open -na "Alacritty" --args -e "$file" 2>/dev/null || open "$file" ;;
+    *) echo "launch_in_terminal: unknown PREFERRED_TERM='${PREFERRED_TERM}'; using default handler" >&2; open "$file" ;;
+    esac
+}
+
+if [ "${COACH_DRAMA_TRIANGLE_CLAUDE_DRY_RUN:-}" = "1" ]; then
+    echo "coach-drama-triangle-claude: dry run generated ${LAUNCHER_FILE}"
+    exit 0
+fi
+
+launch_in_terminal "${LAUNCHER_FILE}"

@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# coach-pairing-claude: when Tuple transcription starts, launch Claude Code as a
-# live pairing coach.
-#
-# COACH_PURPOSE steers the agent's coaching framing. Edit it here to tune the
-# coaching style and focus without touching anything else in this trigger.
-#
-# Everything about following the call — catching up on what's been said, watching
-# the live transcript, and the base context prompt — is delegated to
-# `tuple connect --harness claude [purpose]`. The purpose string is the only
-# thing this trigger adds on top of sidekick-claude.
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?coach-pairing-claude requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?coach-pairing-claude requires TUPLE_TRIGGER_RECORDING_ID}"
 
 # ---------------------------------------------------------------------------
 # Edit the coaching purpose here.
@@ -23,13 +15,13 @@ COACH_PURPOSE='You are a live pairing coach, not a sidekick. Watch the session f
 # ---------------------------------------------------------------------------
 PREFERRED_TERM="${PREFERRED_TERM:-}"
 
-# A fresh working directory per transcription-start (timestamp + this trigger's
-# PID) means stopping and restarting transcription spawns a new coach while
-# older ones keep running — no dedup.
 TMP="${TMPDIR:-/tmp}"
 WORKDIR="${TMP%/}/tuple-coach-pairing-claude/$(date +%Y%m%dT%H%M%S)-$$"
 LAUNCHER_FILE="${WORKDIR}/launch-coach-pairing-claude.command"
 mkdir -p "${WORKDIR}"
+
+printf 'export TUPLE_TRIGGER_CALL_ID=%q\nexport TUPLE_TRIGGER_RECORDING_ID=%q\n' \
+    "${CALL_ID}" "${RECORDING_ID}" > "${WORKDIR}/trigger-context.sh"
 
 # Write COACH_PURPOSE to a sidecar file the launcher reads at runtime. Keeping it
 # out of the launcher script means the purpose can hold any characters — quotes,
@@ -46,6 +38,7 @@ echo
 
 SCRIPT_DIR="${0:A:h}"
 cd "${SCRIPT_DIR}" || exit 1
+source "${SCRIPT_DIR}/trigger-context.sh"
 COACH_PURPOSE="$(cat "${SCRIPT_DIR}/coach-purpose.txt")"
 
 if ! command -v tuple >/dev/null 2>&1; then
@@ -61,7 +54,6 @@ SCRIPT
 
 chmod 0755 "${LAUNCHER_FILE}"
 
-# --- launch_in_terminal: open the .command launcher in the user's terminal ---
 # Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
 # so it triggers no macOS accessibility prompt and no stray empty windows.
 # With PREFERRED_TERM empty, the launcher opens in your default handler for

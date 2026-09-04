@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# coach-drama-triangle-claude: when Tuple transcription starts, launch Claude
-# Code as a live drama-triangle coach.
-#
-# Everything about following the call — catching up on what's been said, watching
-# the live transcript, and the base context prompt — is delegated to
-# `tuple connect --harness claude`. The COACH_PURPOSE below adds the
-# drama-triangle coaching lens on top of connect's base prompt. The trigger never
-# needs to change when the call format or prompt does; only COACH_PURPOSE varies.
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?coach-drama-triangle-claude requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?coach-drama-triangle-claude requires TUPLE_TRIGGER_RECORDING_ID}"
 
 # Set your preferred terminal here, or leave empty to use your default handler
 # for .command files. One of: ghostty | iterm | alacritty | terminal
@@ -19,13 +13,13 @@ PREFERRED_TERM="${PREFERRED_TERM:-}"
 # the drama-triangle lens on top of it.
 COACH_PURPOSE="Watch my own lines for Karpman Drama Triangle patterns (Victim, Persecutor, Rescuer) and, when you spot one with high confidence, surface a single-line reframe toward the empowered alternative (Creator, Challenger, or Coach) as a quiet terminal nudge plus a best-effort desktop notification. Stay otherwise silent during the call. When the call ends, read the full transcript and write a brief drama-evaluation.md to the session directory covering per-participant role patterns, the 2-3 hook moments where the conversation tipped, and concrete phrases I could try differently with each teammate next time."
 
-# A fresh working directory per transcription-start (timestamp + this trigger's
-# PID) means stopping and restarting transcription spawns a new companion while
-# older ones keep running — no dedup.
 TMP="${TMPDIR:-/tmp}"
 WORKDIR="${TMP%/}/tuple-coach-drama-triangle-claude/$(date +%Y%m%dT%H%M%S)-$$"
 LAUNCHER_FILE="${WORKDIR}/launch-coach-drama-triangle-claude.command"
 mkdir -p "${WORKDIR}"
+
+printf 'export TUPLE_TRIGGER_CALL_ID=%q\nexport TUPLE_TRIGGER_RECORDING_ID=%q\n' \
+    "${CALL_ID}" "${RECORDING_ID}" > "${WORKDIR}/trigger-context.sh"
 
 # Write COACH_PURPOSE to a sidecar file the launcher reads at runtime. Keeping it
 # out of the launcher script means the purpose can hold any characters — quotes,
@@ -44,6 +38,7 @@ echo
 
 SCRIPT_DIR="${0:A:h}"
 cd "${SCRIPT_DIR}" || exit 1
+source "${SCRIPT_DIR}/trigger-context.sh"
 COACH_PURPOSE="$(cat "${SCRIPT_DIR}/coach-purpose.txt")"
 
 if ! command -v tuple >/dev/null 2>&1; then
@@ -59,7 +54,6 @@ SCRIPT
 
 chmod 0755 "${LAUNCHER_FILE}"
 
-# --- launch_in_terminal: open the .command launcher in the user's terminal ---
 # Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
 # so it triggers no macOS accessibility prompt and no stray empty windows.
 # With PREFERRED_TERM empty, the launcher opens in your default handler for

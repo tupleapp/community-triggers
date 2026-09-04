@@ -1,6 +1,6 @@
 {
   "name": "Sidekick - Claude",
-  "description": "Launches Claude Code as a live call companion when Tuple transcription starts. It reads the transcript as the call happens, logs a running play-by-play, and chimes in when you say \"Claude\".",
+  "description": "Launches Claude Code as a live call companion when Tuple Capture starts. It reads the transcript as the call happens, logs a running play-by-play, and chimes in when you say \"Claude\".",
   "category": "Sidekick",
   "platforms": ["macos"],
   "language": "bash"

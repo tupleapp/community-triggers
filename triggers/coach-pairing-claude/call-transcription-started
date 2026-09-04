@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Edit the coaching purpose here.
+COACH_PURPOSE='You are a live pairing coach, not a sidekick. Watch the session for pairing anti-patterns — backseat driving, a quiet navigator, a silent driver, no shared goal, grinding without swaps or breaks — and, when confident, surface a single one-line move the pair can make right now (terminal line + best-effort desktop notification). Stay otherwise silent. Track talk-time balance, who last spoke, whether a goal was set, and how long since the last break or role swap. When the call ends, read the full transcript and write a retro to pairing-evaluation.md: talk-time balance, each anti-pattern with a timestamped quote, what worked (up to 3 moves), and the one highest-leverage thing to practice next session.'
+
+# Set your preferred terminal here, or leave empty to use your default handler
+# for .command files. One of: ghostty | iterm | alacritty | terminal
+PREFERRED_TERM="${PREFERRED_TERM:-}"
+
+TMP="${TMPDIR:-/tmp}"
+WORKDIR="${TMP%/}/tuple-coach-pairing-claude/$(date +%Y%m%dT%H%M%S)-$$"
+LAUNCHER_FILE="${WORKDIR}/launch-coach-pairing-claude.command"
+mkdir -p "${WORKDIR}"
+
+# Write COACH_PURPOSE to a sidecar file the launcher reads at runtime. Keeping it
+# out of the launcher script means the purpose can hold any characters — quotes,
+# apostrophes ("don't"), em-dashes — without ever breaking the launcher's shell
+# quoting. (Mirrors how the call-summary triggers stage their prompt file.)
+printf '%s' "${COACH_PURPOSE}" > "${WORKDIR}/coach-purpose.txt"
+
+cat > "${LAUNCHER_FILE}" <<'SCRIPT'
+#!/bin/zsh -li
+printf '\e]0;Coach - Pairing - Claude\a'
+clear
+echo 'Starting Coach - Pairing - Claude...'
+echo
+
+SCRIPT_DIR="${0:A:h}"
+cd "${SCRIPT_DIR}" || exit 1
+COACH_PURPOSE="$(cat "${SCRIPT_DIR}/coach-purpose.txt")"
+
+if ! command -v tuple >/dev/null 2>&1; then
+    echo "tuple was not found on your interactive shell PATH."
+    echo "Make sure 'tuple' works in a new terminal, then run the trigger again."
+    echo
+    read '?Press return to close.'
+    exit 127
+fi
+
+exec tuple connect --harness claude "$COACH_PURPOSE"
+SCRIPT
+
+chmod 0755 "${LAUNCHER_FILE}"
+
+# Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
+# so it triggers no macOS accessibility prompt and no stray empty windows.
+# With PREFERRED_TERM empty, the launcher opens in your default handler for
+# .command files (change it in Finder: right-click a .command > Open With >
+# your terminal > Change All). Set PREFERRED_TERM to force one for this trigger.
+# Ghostty, iTerm, and Terminal run an opened .command directly; Alacritty has no
+# document handler, so it is launched with `open -na ... --args -e`.
+launch_in_terminal() {
+    local file="$1"
+    case "${PREFERRED_TERM:-}" in
+    "") open "$file" ;;
+    ghostty) open -a "Ghostty" "$file" 2>/dev/null || open "$file" ;;
+    iterm) open -a "iTerm" "$file" 2>/dev/null || open "$file" ;;
+    terminal) open -a "Terminal" "$file" 2>/dev/null || open "$file" ;;
+    alacritty) open -na "Alacritty" --args -e "$file" 2>/dev/null || open "$file" ;;
+    *) echo "launch_in_terminal: unknown PREFERRED_TERM='${PREFERRED_TERM}'; using default handler" >&2; open "$file" ;;
+    esac
+}
+
+if [ "${COACH_PAIRING_CLAUDE_DRY_RUN:-}" = "1" ]; then
+    echo "coach-pairing-claude: dry run generated ${LAUNCHER_FILE}"
+    exit 0
+fi
+
+launch_in_terminal "${LAUNCHER_FILE}"

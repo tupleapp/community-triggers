@@ -1,24 +1,3 @@
-// Tuple Pi sidecar — the minimal live-call companion extension for Sidekick-Pi.
-//
-// Loaded automatically from `.pi/extensions/` in the call's working directory, so
-// it is active the moment Pi starts — no /reload, no self-authoring.
-//
-// The trigger launches Pi with `tuple connect --harness pi`, which resolves call
-// state and gives Pi a context prompt. This extension does one job well: it owns
-// the live transcript feed in the *background* so Pi stays responsive to you, and
-// surfaces the watch state on Pi's toolbar.
-//
-// It reads the call through `tuple transcription show --wait` (the daemon's
-// unified record stream), batches new speech on natural pauses, and pushes each
-// batch into the main thread with `pi.sendMessage(..., { triggerTurn: true })` —
-// which starts a turn when Pi is idle (its normal state between batches) and
-// queues behind your own turn when you're talking to it. Connect's prompt tells Pi
-// to follow the transcript itself; the extension overrides that on
-// `before_agent_start` so the call is never read twice.
-//
-// The only tool it adds is `set_watch_mode` (realtime / balanced / low_noise) to
-// trade responsiveness for quiet.
-
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
@@ -29,46 +8,44 @@ const execFileP = promisify(execFile);
 
 type Speaker = { name: string; email: string };
 type WatchMode = "realtime" | "balanced" | "low_noise";
-type ParsedLine = { line: string; urgent: boolean; sortMs: number };
+type ParsedLine = { line: string; requiresResponse: boolean; sortMs: number };
 
 const CLI = "tuple";
+const RECORDING_ID = process.env.TUPLE_TRIGGER_RECORDING_ID || "";
 // The name(s) Pi answers to, plus their common Whisper mis-hearings. Add your own
 // name and its likely mistranscriptions here so Pi reliably notices when addressed.
 const WATCH_WORDS = ["pi", "pie"];
-const STREAM_TIMEOUT = "30s"; // each --wait returns empty after this much silence so the loop re-checks
+const STREAM_TIMEOUT_MS = 30_000;
 const CATCHUP_MAX_LINES = 300; // cap the "call so far" backlog so a late join doesn't flood Pi's context
 const SKIP_EVENT_CATEGORIES = new Set(["user_audio_started", "user_audio_stopped"]);
-// `recording_ended` means transcription stopped (it may restart) — worth a Pi
-// checkpoint. The call itself ending arrives as the terminal call_ended status line.
-const STOP_OR_END_EVENT_CATEGORIES = new Set(["recording_ended"]);
+const RECORDING_END = "recording_ended";
 const SCREEN_START = "user_screen_sharing_started";
 const SCREEN_STOP = "user_screen_sharing_stopped";
 
 const DEFAULT_WATCH_MODE: WatchMode = "realtime";
-// Each mode maps to a `transcription show --interval` value (none = flush on every
-// pause). --watch-words still flushes early when the name is spoken.
-const MODE_INTERVAL: Record<WatchMode, string | null> = { realtime: null, balanced: "12s", low_noise: "20s" };
+const MODE_INTERVAL_MS: Record<WatchMode, number | null> = { realtime: null, balanced: 12_000, low_noise: 20_000 };
 const MODE_DESC: Record<WatchMode, string> = {
   realtime: "flush on every pause — most responsive, for pair programming or troubleshooting",
   balanced: "batch up to ~12s — for normal meetings and onboarding",
   low_noise: "batch up to ~20s — for presentations or long monologues",
 };
 
-// Build the `transcription show --wait` args for a watch mode. `show` streams the
-// active call's unified record feed; --with-events adds the lifecycle records
-// (joins, screen share, recording end) the companion needs alongside transcripts,
-// and --format json makes it NDJSON (show defaults to human-readable text).
 // The non-obvious rule: the CLI rejects --watch-words without --interval, and
 // realtime (no interval) flushes on every pause anyway — so watch words ride along
 // only when an interval is set.
 function buildStreamArgs(watchWords: string[], watchMode: WatchMode, cursor: string): string[] {
-  const args = ["transcription", "show", "--wait", "--cursor", cursor, "--timeout", STREAM_TIMEOUT, "--with-events", "--format", "json"];
-  const interval = MODE_INTERVAL[watchMode];
+  const args = ["capture", "next", "--recording", RECORDING_ID, "--timeout", `${STREAM_TIMEOUT_MS}ms`, "--exclude", "content", "--format", "json"];
+  if (cursor) args.push("--cursor", cursor);
+  const interval = MODE_INTERVAL_MS[watchMode];
   if (interval) {
-    args.push("--interval", interval);
+    args.push("--interval", `${interval}ms`);
     if (watchWords.length) args.push("--watch-words", watchWords.join(","));
   }
   return args;
+}
+
+function streamExecMs(watchMode: WatchMode): number {
+  return Math.max(45_000, (MODE_INTERVAL_MS[watchMode] ?? 0) + STREAM_TIMEOUT_MS + 15_000);
 }
 
 // Override appended to connect's system prompt so Pi does not also run the
@@ -77,7 +54,7 @@ const FEED_OVERRIDE = `
 
 ## Live transcript delivery (overrides "Following the live transcript")
 
-A sidecar extension is following this call and delivering new speech to you automatically as messages that begin "New on the call:". Do **not** run \`tuple transcription show\`, \`--wait\`, or any other transcript loop yourself — you would read the call twice. Your catch-up arrives once as a "The call so far" message; after that, respond to each "New on the call:" batch exactly as your instructions describe (a one-line \`·\` summary, escalating to \`👋\` when it matters). Everything else in your instructions still applies, including writing an outline when recording stops or the call ends.
+A sidecar extension is following this Capture session and delivering new speech to you automatically as messages that begin "New on the call:". Do **not** run \`tuple capture next\`, \`tuple capture follow\`, or any other Capture loop yourself — you would read the call twice. Your catch-up arrives once as a "The call so far" message; after that, respond to each "New on the call:" batch exactly as your instructions describe (a one-line \`·\` summary, escalating to \`👋\` when it matters). Everything else in your instructions still applies, including writing an outline when Capture stops or the call ends.
 
 You also have a \`set_watch_mode\` tool to trade responsiveness for quiet as the call's shape changes.`;
 
@@ -86,6 +63,18 @@ You also have a \`set_watch_mode\` tool to trade responsiveness for quiet as the
 async function tuple(args: string[], timeoutMs = 45_000): Promise<string> {
   const { stdout } = await execFileP(CLI, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 });
   return stdout;
+}
+
+function tupleError(err: any): string {
+  const lines = String(err?.stderr ?? "").trim().split("\n").reverse();
+  for (const line of lines) {
+    try {
+      const payload = JSON.parse(line);
+      if (payload && typeof payload.error === "string") return payload.error;
+    } catch {
+    }
+  }
+  return "Tuple CLI failed without a structured error";
 }
 
 function timestampMs(value: unknown): number {
@@ -186,7 +175,7 @@ export default function (pi: ExtensionAPI) {
     if (String(rec?.kind ?? "") === "status") {
       if (String(rec.status ?? "") === "call_ended") {
         ended = true;
-        return { line: "- event: call_ended", urgent: true, sortMs: Number.MAX_SAFE_INTEGER };
+        return { line: "- event: call_ended", requiresResponse: true, sortMs: Number.MAX_SAFE_INTEGER };
       }
       return null;
     }
@@ -199,13 +188,14 @@ export default function (pi: ExtensionAPI) {
       const text = String(data.text ?? "");
       if (!text.trim()) return null;
       const when = data.start || rec.time;
-      return { line: `- ${hms(when)} ${resolveSpeaker(data.user_id)}: ${text}`, urgent: isWake(text), sortMs: timestampMs(when) };
+      return { line: `- ${hms(when)} ${resolveSpeaker(data.user_id)}: ${text}`, requiresResponse: isWake(text), sortMs: timestampMs(when) };
     }
     if (type === "transcription_started" || type === "transcription_dropped") return null;
 
     // Otherwise the record is a call-event category; `type` is the category.
     if (type === SCREEN_START) screenSharing = true;
     if (type === SCREEN_STOP) screenSharing = false;
+    if (type === RECORDING_END) ended = true;
     if (data.user) {
       const id = userIdKey(data.user);
       const name = displayName(data.user);
@@ -215,16 +205,24 @@ export default function (pi: ExtensionAPI) {
     if (SKIP_EVENT_CATEGORIES.has(type)) return null;
     return {
       line: `- ${hms(rec.time)} event: ${type}${data.message ? ` (${data.message})` : ""}`,
-      urgent: STOP_OR_END_EVENT_CATEGORIES.has(type),
+      requiresResponse: type === RECORDING_END,
       sortMs: timestampMs(rec.time),
     };
   }
 
-  function parseBatch(out: string): { lines: string[]; urgent: boolean } {
+  function parseBatch(out: string): { lines: string[]; requiresResponse: boolean; cursor: string } {
     const records: ParsedLine[] = [];
+    let highestRecordId = 0;
     for (const raw of out.split("\n")) {
       const trimmed = raw.trim();
       if (!trimmed) continue;
+      try {
+        const rec = JSON.parse(trimmed);
+        if (Number.isSafeInteger(rec?.id) && rec.id > highestRecordId) {
+          highestRecordId = rec.id;
+        }
+      } catch {
+      }
       const rec = readEnvelope(trimmed);
       if (rec) records.push(rec);
     }
@@ -232,7 +230,11 @@ export default function (pi: ExtensionAPI) {
     // deterministically — never produce NaN in the comparator.
     const key = (r: ParsedLine) => (Number.isFinite(r.sortMs) ? r.sortMs : Number.MAX_SAFE_INTEGER);
     records.sort((a, b) => key(a) - key(b));
-    return { lines: records.map((r) => r.line), urgent: records.some((r) => r.urgent) };
+    return {
+      lines: records.map((r) => r.line),
+      requiresResponse: records.some((r) => r.requiresResponse),
+      cursor: highestRecordId ? String(highestRecordId) : "",
+    };
   }
 
   // Push a batch into the main thread. Plain triggerTurn starts a turn when Pi is
@@ -242,24 +244,23 @@ export default function (pi: ExtensionAPI) {
     pi.sendMessage({ customType: "tuple-call-sidekick", content, display: false }, { triggerTurn: true });
   }
 
-  // The feed: loop `transcription show --wait` with a fresh per-process cursor.
-  // The first run returns the full catch-up; later runs return only new speech
-  // (the cursor guarantees no gaps and no repeats).
+  // Each response carries numeric record ids; the next request resumes after the
+  // highest one. A restarted process has no cursor and catches up again.
   async function followLoop(ctx: any) {
-    const cursor = `sidecar-${Date.now()}`;
+    let cursor = "";
     let first = true;
     let consecutiveErrors = 0;
     while (!stopped && !ended) {
       let out = "";
       try {
-        out = await tuple(buildStreamArgs(WATCH_WORDS, watchMode, cursor), 45_000);
+        out = await tuple(buildStreamArgs(WATCH_WORDS, watchMode, cursor), streamExecMs(watchMode));
         consecutiveErrors = 0;
       } catch (err: any) {
         if (stopped || ended) break;
         // Surface the failure once (instead of dying silently), then keep retrying
         // on a longer cooldown — a transient outage shouldn't end the feed for good.
         if (++consecutiveErrors === 6) {
-          const detail = String(err?.stderr || err?.message || err).trim().slice(0, 300);
+          const detail = tupleError(err).slice(0, 300);
           deliver(`⚠️ The live transcript feed errored — I can't read the call right now, but I'll keep retrying. Last error:\n\n${detail}\n\nYou can still talk to me directly.`);
         }
         await new Promise((r) => setTimeout(r, consecutiveErrors >= 6 ? 10_000 : 2000));
@@ -267,7 +268,9 @@ export default function (pi: ExtensionAPI) {
       }
       if (!out.trim()) continue; // silence window elapsed; re-check
 
-      const { lines, urgent } = parseBatch(out);
+      const batch = parseBatch(out);
+      if (batch.cursor) cursor = batch.cursor;
+      const { lines, requiresResponse } = batch;
       if (lines.length) {
         batchCount += 1;
         setStatus(ctx);
@@ -278,7 +281,7 @@ export default function (pi: ExtensionAPI) {
           const preface = omitted > 0 ? `(${omitted} earlier lines omitted — this is the recent tail)\n\n` : "";
           deliver(`The call so far, for context — do not comment on it retroactively:\n\n${preface}${recent.join("\n")}`);
         } else {
-          const tail = urgent
+          const tail = requiresResponse
             ? "This includes a line addressed to you or a recording stop / call-end — respond per your instructions."
             : "Leave a one-line `·` summary of what they just covered; escalate to `👋` only if something matters.";
           deliver(`New on the call:\n\n${lines.join("\n")}\n\n${tail}`);
@@ -302,8 +305,8 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const mode = String(params?.mode ?? "").trim().toLowerCase().replace(/-/g, "_") as WatchMode;
-      if (!(mode in MODE_INTERVAL)) throw new Error("mode must be one of: realtime, balanced, low_noise");
-      watchMode = mode; // the next --wait iteration picks up the new --interval
+      if (!(mode in MODE_INTERVAL_MS)) throw new Error("mode must be one of: realtime, balanced, low_noise");
+      watchMode = mode;
       setStatus(ctx);
       const reason = typeof params?.reason === "string" && params.reason.trim() ? ` Reason: ${params.reason.trim()}` : "";
       return { content: [{ type: "text", text: `Watch mode set to ${mode} (${MODE_DESC[mode]}); applies from the next batch.${reason}` }] };
@@ -311,6 +314,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event: any, ctx: any) => {
+    if (!RECORDING_ID) {
+      throw new Error("sidekick-pi requires TUPLE_TRIGGER_RECORDING_ID");
+    }
     try {
       if (ctx?.hasUI) ctx.ui.notify("Tuple Pi companion loaded — following the call in the background.", "info");
     } catch {

@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Set your preferred terminal here, or leave empty to use your default handler
+# for .command files. One of: ghostty | iterm | alacritty | terminal
+PREFERRED_TERM="${PREFERRED_TERM:-}"
+
+TMP="${TMPDIR:-/tmp}"
+WORKDIR="${TMP%/}/tuple-call-summary-pi/$(date +%Y%m%dT%H%M%S)-$$"
+PROMPT_FILE="${WORKDIR}/call-summary-pi-prompt.md"
+LAUNCHER_FILE="${WORKDIR}/launch-call-summary-pi.command"
+mkdir -p "${WORKDIR}"
+
+cat > "${PROMPT_FILE}" <<'PROMPT'
+A Tuple pair-programming call just finished, and you've been asked to summarize it. Other call participants do not see your output; you interact only with the user at this terminal.
+
+## Find the call
+
+Get the call id with the `tuple` CLI: run `tuple call current` if you're still on the call, otherwise take the most recent call from `tuple transcription list` (it lists stored calls newest first).
+
+## Read it
+
+`tuple transcription show <id>` prints the full transcript with speaker names. Add `--with-events` if join/leave/screen events would help anchor decisions. (Use `--format json` if you'd rather parse the records; the default is human-readable.)
+
+## Summarize
+
+Produce a tight, useful summary first, without preamble:
+
+## Summary
+
+2-4 bullets covering the main outcome of the conversation.
+
+## Decisions
+
+Bullets for concrete decisions. Omit this section if there were none.
+
+## Action items
+
+Bullets with owner names when stated. Omit this section if there were none.
+
+## Open questions
+
+Bullets for unresolved questions or follow-ups. Omit this section if there were none.
+
+## Notable context
+
+Only details that would help the user remember the call later. Omit if there's nothing useful.
+
+If the transcript is empty or too sparse to summarize, say so plainly.
+
+## Write it back to the call
+
+Once you have the summary, record it on the call itself so it's there in Tuple's Call History:
+
+    tuple transcription set-title <id> "<a short, specific title for the whole call>"
+    tuple transcription set-summary <id> "<your summary>"
+
+(If you have Tuple's MCP `set_call_title` and `set_call_summary` tools available, you may use those instead.)
+
+## Stay available
+
+Keep this session open for follow-up questions, answering from the transcript. If the user asks for a different format, transform the same transcript-backed facts rather than inventing context.
+PROMPT
+
+# The launcher runs as a login-interactive zsh so `pi` and `tuple` resolve from
+# the same PATH you get in a fresh terminal.
+cat > "${LAUNCHER_FILE}" <<'SCRIPT'
+#!/bin/zsh -li
+printf '\e]0;Tuple Call Summary - Pi\a'
+clear
+echo 'Starting Call Summary - Pi…'
+echo
+
+SCRIPT_DIR="${0:A:h}"
+PROMPT_FILE="${SCRIPT_DIR}/call-summary-pi-prompt.md"
+cd "${SCRIPT_DIR}" || exit 1
+
+if ! command -v pi >/dev/null 2>&1; then
+    echo "Pi was not found on your interactive shell PATH."
+    echo "Make sure 'pi' works in a new terminal, then run the trigger again."
+    echo
+    read '?Press return to close.'
+    exit 127
+fi
+if ! command -v tuple >/dev/null 2>&1; then
+    echo "The 'tuple' CLI was not found on your interactive shell PATH."
+    echo "Make sure 'tuple' works in a new terminal, then run the trigger again."
+    echo
+    read '?Press return to close.'
+    exit 127
+fi
+
+exec pi "$(cat "${PROMPT_FILE}")"
+SCRIPT
+
+chmod 0755 "${LAUNCHER_FILE}"
+
+# Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
+# so it triggers no macOS accessibility prompt and no stray empty windows.
+# With PREFERRED_TERM empty, the launcher opens in your default handler for
+# .command files (change it in Finder: right-click a .command > Open With >
+# your terminal > Change All). Set PREFERRED_TERM to force one for this trigger.
+# Ghostty, iTerm, and Terminal run an opened .command directly; Alacritty has no
+# document handler, so it is launched with `open -na ... --args -e`.
+launch_in_terminal() {
+    local file="$1"
+    case "${PREFERRED_TERM:-}" in
+    "") open "$file" ;;
+    ghostty) open -a "Ghostty" "$file" 2>/dev/null || open "$file" ;;
+    iterm) open -a "iTerm" "$file" 2>/dev/null || open "$file" ;;
+    terminal) open -a "Terminal" "$file" 2>/dev/null || open "$file" ;;
+    alacritty) open -na "Alacritty" --args -e "$file" 2>/dev/null || open "$file" ;;
+    *) echo "launch_in_terminal: unknown PREFERRED_TERM='${PREFERRED_TERM}'; using default handler" >&2; open "$file" ;;
+    esac
+}
+
+if [ "${CALL_SUMMARY_PI_DRY_RUN:-}" = "1" ]; then
+    echo "call-summary-pi: dry run generated ${LAUNCHER_FILE}"
+    exit 0
+fi
+
+launch_in_terminal "${LAUNCHER_FILE}"

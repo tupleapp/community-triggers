@@ -1,12 +1,12 @@
 # Sidekick - Codex
 
-Launches [Codex](https://developers.openai.com/codex/cli/) as a live companion on your Tuple call when transcription starts.
+Launches [Codex](https://developers.openai.com/codex/cli/) as a live companion on your Tuple call when Capture starts.
 
 When `call-capture-started` fires, this trigger opens your preferred terminal and runs `tuple connect --harness codex`. Connect resolves the call state, gives Codex a context prompt, and points it at the live transcript — so Codex catches up on everything said so far, then watches the call as it happens and acts as a sharp third pair.
 
 ## What it does
 
-`tuple connect` brings Codex into the call and tells it how to follow along, using the `tuple` CLI's own transcript stream (`tuple transcription show --wait`). Guided by connect's prompt, Codex:
+`tuple connect` brings Codex into the call and tells it how to follow the version-matched Capture stream. Guided by connect's prompt, Codex:
 
 - **Logs the call live** — a one-line `·` play-by-play on each batch of new transcript, so you can follow along at a glance.
 - **Chimes in when it matters** — a real interjection for a bug it can see, an ambiguous decision or action item, a correction, or a direct question.
@@ -29,9 +29,9 @@ The terminal runs `launch-sidekick-codex.command`, whose `#!/bin/zsh -li` sheban
 
 - macOS
 - [Codex](https://developers.openai.com/codex/cli/) installed so `codex` works in a new terminal
-- The `tuple` CLI on your interactive shell PATH (with `connect` and `transcription` support)
-  - Install it from the Tuple app: its Transcription settings have an **Install** button that links `tuple` onto your PATH.
-- Tuple transcription enabled for the call
+- The `tuple` CLI on your interactive shell PATH (with `connect` and `capture` support)
+  - Install it from the Tuple app: its Capture settings have an **Install** button that links `tuple` onto your PATH.
+- Tuple Capture enabled for the call
 
 ## Installation
 
@@ -39,17 +39,18 @@ Drop this directory into your Tuple triggers folder:
 
 `~/.tuple/triggers/sidekick-codex/`
 
-The trigger fires the next time call transcription starts.
+The trigger fires the next time call Capture starts.
 
 ## How it works
 
-`call-capture-started` fires with no call-specific arguments. This trigger:
+`call-capture-started` supplies the call and recording IDs through environment variables, not
+positional arguments. This trigger:
 
 1. Creates a working directory per start, `${TMPDIR:-/tmp}/tuple-sidekick-codex/<timestamp>-<pid>`.
-2. Writes an executable `launch-sidekick-codex.command` wrapper into it.
+2. Shell-quotes both IDs into `trigger-context.sh` and writes an executable `launch-sidekick-codex.command` wrapper.
 3. Opens it in your preferred terminal via `open` (LaunchServices). No AppleScript and no direct binary launch, so it triggers no macOS accessibility prompt and no stray windows.
-4. The wrapper starts a login-interactive zsh, `cd`s to that directory, and runs `tuple connect --harness codex`.
+4. The wrapper starts a login-interactive zsh, sources the trigger context, and runs `tuple connect --harness codex`. Connect selects the live current session; the exact trigger IDs remain available to the launched agent and its Tuple commands.
 
-There is no dedup: each transcription-start gets its own directory, so stopping and restarting transcription spawns a fresh companion while older ones keep running.
+There is no dedup: each Capture start gets its own directory, so stopping and restarting Capture spawns a fresh companion while older ones keep running.
 
 For local testing without opening a terminal, set `SIDEKICK_CODEX_DRY_RUN=1`; it writes the launcher and exits.

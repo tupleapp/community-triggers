@@ -13,14 +13,15 @@ local indexing. Nothing opens and nothing waits for input.
 When `call-capture-complete` fires, the trigger writes a prompt and launches Claude headless.
 Claude then:
 
-- Finds the call — `tuple call current` if you're still on it, otherwise the most recent call from
-  `tuple transcription list`.
+- Uses `TUPLE_TRIGGER_CALL_ID` and `TUPLE_TRIGGER_RECORDING_ID` to select the exact Capture
+  session that fired the trigger.
 - Stops without changing anything if that call already has a summary, so one you wrote by hand is
   never overwritten.
-- Reads the transcript — `tuple transcription show <id> --with-events`.
+- Reads transcript and lifecycle records with
+  `tuple capture show --recording "$TUPLE_TRIGGER_RECORDING_ID" --exclude content --format json`.
 - Writes a title and a structured summary (outcome, decisions, action items, open questions, notable
-  context) back onto the call with `tuple transcription set-title` / `set-summary`, so they show up
-  in Tuple's Call History.
+  context) back onto the call with `tuple call edit "$TUPLE_TRIGGER_CALL_ID" --title … --summary …`,
+  so they show up in Tuple's Call History.
 
 The trigger then exports every call's title and summary to markdown and hands them to qmd:
 
@@ -33,10 +34,11 @@ qmd search "postgres migration" -c tuple
 
 Only titles and summaries are indexed. A raw transcript is mostly filler and cross-talk, and it
 captures whatever personal conversation happened around the work — the summary is the part worth
-searching. Full transcripts stay one command away:
+searching. All recordings for an indexed call stay one command away through the
+canonical call selector:
 
 ```bash
-tuple transcription show <call-id>
+tuple capture show <call-id> --exclude events,content
 ```
 
 Tuple transcribes on-device, and the exported summaries and qmd index stay on your machine as plain
@@ -62,7 +64,7 @@ qmd update && qmd embed
 ## Requirements
 
 - macOS
-- The `tuple` CLI available on your login shell's `PATH` (with `transcription` support)
+- The `tuple` CLI available on your login shell's `PATH` (with `capture` support)
 - [Claude Code](https://claude.com/claude-code) (`claude`), authenticated
 - [qmd](https://github.com/tobi/qmd) — optional. Without it the summary is still written to the
   call and only the indexing step is skipped.
@@ -72,8 +74,8 @@ qmd update && qmd embed
 Install the trigger. There is no other setup: on its first run it registers the qmd collection and
 sets that collection's update command, so `qmd update` keeps it current from then on.
 
-Claude Code is given a deliberately narrow allow-list — only the `tuple transcription` subcommands
-needed to read the call and write the summary back.
+Claude Code is given a deliberately narrow allow-list — only `tuple capture show`,
+`tuple call show`, and `tuple call edit`.
 
 ## Configuration
 
