@@ -21,12 +21,14 @@ urlencode() {
     printf '%s' "${encoded}"
 }
 
+CALL="${1:-${TUPLE_TRIGGER_CALL_ID:-}}"
+
 PROMPT=$(cat <<'PROMPT'
 A Tuple pair-programming call just finished, and you've been asked to summarize it.
 
 ## Find the call
 
-Get the call id with the `tuple` CLI: run `tuple call current` if you're still on the call, otherwise take the most recent call from `tuple transcription list` (it lists stored calls newest first).
+If a `## Triggering call` section appears below, use that exact id and do not discover another call. Otherwise, for older Tuple versions that did not supply an id, run `tuple call current` if you're still on the call or take the most recent call from `tuple transcription list`.
 
 ## Read it
 
@@ -51,6 +53,10 @@ Record the summary on the call itself so it's there in Tuple's Call History:
     tuple transcription set-summary <id> "<your summary>"
 PROMPT
 )
+
+if [ -n "${CALL}" ]; then
+    printf -v PROMPT '%s\n\n## Triggering call\n\nSummarize this call and only this call:\n\n    %s\n\nDo not run `tuple call current` or select the newest stored call. If this id cannot be found, stop.\n' "${PROMPT}" "${CALL}"
+fi
 
 DEEPLINK="claude://cowork/new?q=$(urlencode "${PROMPT}")"
 

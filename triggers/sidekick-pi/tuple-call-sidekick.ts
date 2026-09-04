@@ -274,8 +274,9 @@ export default function (pi: ExtensionAPI) {
       if (lines.length) {
         batchCount += 1;
         setStatus(ctx);
-        if (first) {
-          first = false;
+        const isInitialBatch = first;
+        first = false;
+        if (isInitialBatch && !ended) {
           const recent = lines.length > CATCHUP_MAX_LINES ? lines.slice(-CATCHUP_MAX_LINES) : lines;
           const omitted = lines.length - recent.length;
           const preface = omitted > 0 ? `(${omitted} earlier lines omitted — this is the recent tail)\n\n` : "";

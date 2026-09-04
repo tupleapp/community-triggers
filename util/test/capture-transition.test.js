@@ -63,6 +63,15 @@ for (const [captureTrigger, transcriptionTrigger] of [
     );
 
     withTrigger(
+      { [captureTrigger]: 0o644, [transcriptionTrigger]: 0o755 },
+      () => {
+        const result = validateTrigger("example");
+        assert.equal(result.success, false);
+        assert.match(result.errors[0], /executable/);
+      },
+    );
+
+    withTrigger(
       { [captureTrigger]: 0o755, [transcriptionTrigger]: 0o755 },
       () => assert.equal(validateTrigger("example").success, true),
     );
