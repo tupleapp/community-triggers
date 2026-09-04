@@ -216,6 +216,8 @@ test("structured Capture reads request JSON explicitly", () => {
   assert.match(sidekick, /if \(batch\.cursor\) cursor = batch\.cursor/);
   assert.doesNotMatch(sidekick, /sidecar-\$\{Date\.now\(\)\}/);
   assert.match(sidekick, /if \(type === RECORDING_END\) ended = true/);
+  assert.match(sidekick, /MODE_INTERVAL_MS\[watchMode\].*STREAM_TIMEOUT_MS \+ 15_000/);
+  assert.match(sidekick, /streamExecMs\(watchMode\)/);
   assert.match(sidekick, /err\?\.stderr/);
 });
 

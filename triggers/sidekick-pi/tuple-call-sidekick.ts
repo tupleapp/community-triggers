@@ -15,7 +15,7 @@ const RECORDING_ID = process.env.TUPLE_TRIGGER_RECORDING_ID || "";
 // The name(s) Pi answers to, plus their common Whisper mis-hearings. Add your own
 // name and its likely mistranscriptions here so Pi reliably notices when addressed.
 const WATCH_WORDS = ["pi", "pie"];
-const STREAM_TIMEOUT = "30s"; // each next returns empty after this much silence so the loop re-checks
+const STREAM_TIMEOUT_MS = 30_000;
 const CATCHUP_MAX_LINES = 300; // cap the "call so far" backlog so a late join doesn't flood Pi's context
 const SKIP_EVENT_CATEGORIES = new Set(["user_audio_started", "user_audio_stopped"]);
 const RECORDING_END = "recording_ended";
@@ -23,7 +23,7 @@ const SCREEN_START = "user_screen_sharing_started";
 const SCREEN_STOP = "user_screen_sharing_stopped";
 
 const DEFAULT_WATCH_MODE: WatchMode = "realtime";
-const MODE_INTERVAL: Record<WatchMode, string | null> = { realtime: null, balanced: "12s", low_noise: "20s" };
+const MODE_INTERVAL_MS: Record<WatchMode, number | null> = { realtime: null, balanced: 12_000, low_noise: 20_000 };
 const MODE_DESC: Record<WatchMode, string> = {
   realtime: "flush on every pause — most responsive, for pair programming or troubleshooting",
   balanced: "batch up to ~12s — for normal meetings and onboarding",
@@ -34,14 +34,18 @@ const MODE_DESC: Record<WatchMode, string> = {
 // realtime (no interval) flushes on every pause anyway — so watch words ride along
 // only when an interval is set.
 function buildStreamArgs(watchWords: string[], watchMode: WatchMode, cursor: string): string[] {
-  const args = ["capture", "next", "--recording", RECORDING_ID, "--timeout", STREAM_TIMEOUT, "--exclude", "content", "--format", "json"];
+  const args = ["capture", "next", "--recording", RECORDING_ID, "--timeout", `${STREAM_TIMEOUT_MS}ms`, "--exclude", "content", "--format", "json"];
   if (cursor) args.push("--cursor", cursor);
-  const interval = MODE_INTERVAL[watchMode];
+  const interval = MODE_INTERVAL_MS[watchMode];
   if (interval) {
-    args.push("--interval", interval);
+    args.push("--interval", `${interval}ms`);
     if (watchWords.length) args.push("--watch-words", watchWords.join(","));
   }
   return args;
+}
+
+function streamExecMs(watchMode: WatchMode): number {
+  return Math.max(45_000, (MODE_INTERVAL_MS[watchMode] ?? 0) + STREAM_TIMEOUT_MS + 15_000);
 }
 
 // Override appended to connect's system prompt so Pi does not also run the
@@ -249,7 +253,7 @@ export default function (pi: ExtensionAPI) {
     while (!stopped && !ended) {
       let out = "";
       try {
-        out = await tuple(buildStreamArgs(WATCH_WORDS, watchMode, cursor), 45_000);
+        out = await tuple(buildStreamArgs(WATCH_WORDS, watchMode, cursor), streamExecMs(watchMode));
         consecutiveErrors = 0;
       } catch (err: any) {
         if (stopped || ended) break;
@@ -301,7 +305,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const mode = String(params?.mode ?? "").trim().toLowerCase().replace(/-/g, "_") as WatchMode;
-      if (!(mode in MODE_INTERVAL)) throw new Error("mode must be one of: realtime, balanced, low_noise");
+      if (!(mode in MODE_INTERVAL_MS)) throw new Error("mode must be one of: realtime, balanced, low_noise");
       watchMode = mode;
       setStatus(ctx);
       const reason = typeof params?.reason === "string" && params.reason.trim() ? ` Reason: ${params.reason.trim()}` : "";
