@@ -138,14 +138,15 @@ module.exports = function validateTrigger(triggerName) {
   const incompleteCaptureTransition = CAPTURE_TRANSITION_PAIRS.find(
     ([captureTrigger, transcriptionTrigger]) =>
       existsSync(`${path}/${captureTrigger}`) &&
-      !isExecutableFile(`${path}/${transcriptionTrigger}`)
+      (!isExecutableFile(`${path}/${captureTrigger}`) ||
+        !isExecutableFile(`${path}/${transcriptionTrigger}`))
   );
   if (incompleteCaptureTransition) {
     const [captureTrigger, transcriptionTrigger] = incompleteCaptureTransition;
     return {
       success: false,
       errors: [
-        `During the Capture event transition, \`${captureTrigger}\` must ship with an executable \`${transcriptionTrigger}\` compatibility file.`,
+        `During the Capture event transition, \`${captureTrigger}\` and \`${transcriptionTrigger}\` must both be executable.`,
       ],
     };
   }

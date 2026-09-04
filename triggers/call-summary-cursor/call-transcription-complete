@@ -9,6 +9,7 @@ TMP="${TMPDIR:-/tmp}"
 WORKDIR="${TMP%/}/tuple-call-summary-cursor/$(date +%Y%m%dT%H%M%S)-$$"
 PROMPT_FILE="${WORKDIR}/call-summary-cursor-prompt.md"
 LAUNCHER_FILE="${WORKDIR}/launch-call-summary-cursor.command"
+CALL="${1:-${TUPLE_TRIGGER_CALL_ID:-}}"
 mkdir -p "${WORKDIR}"
 
 cat > "${PROMPT_FILE}" <<'PROMPT'
@@ -16,7 +17,7 @@ A Tuple pair-programming call just finished, and you've been asked to summarize 
 
 ## Find the call
 
-Get the call id with the `tuple` CLI: run `tuple call current` if you're still on the call, otherwise take the most recent call from `tuple transcription list` (it lists stored calls newest first).
+If a `## Triggering call` section appears below, use that exact id and do not discover another call. Otherwise, for older Tuple versions that did not supply an id, run `tuple call current` if you're still on the call or take the most recent call from `tuple transcription list`.
 
 ## Read it
 
@@ -61,6 +62,10 @@ Once you have the summary, record it on the call itself so it's there in Tuple's
 
 Keep this session open for follow-up questions, answering from the transcript. If the user asks for a different format, transform the same transcript-backed facts rather than inventing context.
 PROMPT
+
+if [ -n "${CALL}" ]; then
+    printf '\n## Triggering call\n\nSummarize this call and only this call:\n\n    %s\n\nDo not run `tuple call current` or select the newest stored call. If this id cannot be found, stop.\n' "${CALL}" >> "${PROMPT_FILE}"
+fi
 
 # The launcher runs as a login-interactive zsh so `cursor-agent` and `tuple` resolve from
 # the same PATH you get in a fresh terminal.
