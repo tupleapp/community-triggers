@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# call-summary-qmd: when a Tuple transcription completes, run a headless Claude
-# that summarizes the call, writes the title + summary back onto the call (so they
-# show up in Tuple's Call History), and indexes it into qmd — a local search engine
-# over markdown — so past calls are searchable from the terminal.
-#
-# No live-call machinery and no `tuple connect` — this is a one-shot. The trigger
-# writes a plain prompt and launches Claude headless; Claude finds the call, reads
-# its stored transcript with the `tuple` CLI, and does the work. Once Claude is
-# done this script re-runs itself with --index-only to export every call's summary
-# and hand it to qmd.
-
 LOG=/tmp/tuple-trigger-debug.log
 
 # Where the exported markdown lives, and what the qmd collection is called.
@@ -19,7 +8,6 @@ EXPORT_DIR="${TUPLE_QMD_OUT:-${XDG_DATA_HOME:-$HOME/.local/share}/tuple-summarie
 COLLECTION="${CALL_SUMMARY_QMD_COLLECTION:-tuple}"
 EXPORTER="$(cd "$(dirname "$0")" && pwd)/export-summaries-transcription"
 
-# --- second phase: index whatever summaries now exist -----------------------
 # Runs inside the login shell after Claude exits, so qmd and its node runtime
 # resolve from the user's normal PATH.
 if [ "${1:-}" = "--index-only" ]; then
@@ -56,10 +44,6 @@ except Exception:
 
     mkdir -p "${EXPORT_DIR}"
 
-    # Register the collection on first run, so installing the trigger is the whole
-    # setup. The update command re-exports before every future re-index, which is
-    # what keeps `qmd update` alone sufficient from then on.
-    #
     # The preferred name may already belong to an unrelated collection, and there
     # is nowhere useful to report that: this runs detached after the call ended,
     # and `tuple notifications` only posts to an *active* call (HTTP 410
@@ -76,9 +60,6 @@ except Exception:
             | sed -n "s/^[[:space:]]*$2:[[:space:]]*//p" | head -1
     }
 
-    # Persist the resolved output directory because this hook usually runs later,
-    # outside the trigger's environment. The marker lets future versions recognise
-    # their own hook without treating a matching directory as proof of ownership.
     printf -v quoted_export_dir '%q' "${EXPORT_DIR}"
     printf -v quoted_exporter '%q' "${EXPORTER}"
     want_update=": tuple-call-summary-qmd; TUPLE_QMD_OUT=${quoted_export_dir} ${quoted_exporter} || true"
@@ -114,8 +95,6 @@ except Exception:
                 continue
                 ;;
             esac
-            # Ours from an earlier run. Keep the update command current, since the
-            # exporter moves if the trigger directory does.
             if [ "${existing_update}" != "${want_update}" ]; then
                 echo "call-summary-qmd: refreshing update command on '${candidate}'"
                 if ! qmd collection update-cmd "${candidate}" "${want_update}"; then
@@ -147,7 +126,6 @@ except Exception:
     exit 0
 fi
 
-# --- first phase: build the prompt and launch Claude ------------------------
 
 # The call this fired for. Tuple 3.2.0 does set TUPLE_TRIGGER_CALL_ID on
 # call-transcription-complete, so prefer it over letting Claude guess: by the time

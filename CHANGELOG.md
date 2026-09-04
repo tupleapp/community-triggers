@@ -12,9 +12,9 @@
 - Move call metadata writes to `tuple call edit`, and request
   `--format json` for structured Capture and call reads.
 - Update Sidekick - Pi from `transcription show --wait` to
-  recording-scoped `capture next`. Its cursor tag remains process-specific: a
-  restarted sidekick catches up again and does not depend on the pending
-  resumable-cursor contract.
+  recording-scoped `capture next`. Each request resumes from the highest numeric
+  record ID returned by the previous request; a restarted sidekick catches up
+  again and does not depend on a durable cursor contract.
 - No trigger directory or display name changes in this cutover. The Capture
   event executables remain `call-capture-started` and
   `call-capture-complete`.

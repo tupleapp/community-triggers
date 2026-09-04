@@ -1,23 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sidekick-opencode: when Tuple transcription starts, launch OpenCode as a live
-# call companion.
-#
-# Everything about following the call — catching up on what's been said, watching
-# the live transcript, and the context prompt — is delegated to
-# `tuple connect --harness opencode`. The transcription triggers receive no
-# call-specific args, so this trigger just opens a terminal in a fresh working
-# directory and hands off to connect; connect's prompt drives the rest, so the
-# trigger never needs to change when the call format or prompt does.
-
 # Set your preferred terminal here, or leave empty to use your default handler
 # for .command files. One of: ghostty | iterm | alacritty | terminal
 PREFERRED_TERM="${PREFERRED_TERM:-}"
 
-# A fresh working directory per transcription-start (timestamp + this trigger's
-# PID) means stopping and restarting transcription spawns a new companion while
-# older ones keep running — no dedup.
 TMP="${TMPDIR:-/tmp}"
 WORKDIR="${TMP%/}/tuple-sidekick-opencode/$(date +%Y%m%dT%H%M%S)-$$"
 LAUNCHER_FILE="${WORKDIR}/launch-sidekick-opencode.command"
@@ -47,7 +34,6 @@ SCRIPT
 
 chmod 0755 "${LAUNCHER_FILE}"
 
-# --- launch_in_terminal: open the .command launcher in the user's terminal ---
 # Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
 # so it triggers no macOS accessibility prompt and no stray empty windows.
 # With PREFERRED_TERM empty, the launcher opens in your default handler for

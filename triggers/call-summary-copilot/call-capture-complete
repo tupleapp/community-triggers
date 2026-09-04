@@ -111,7 +111,6 @@ SCRIPT
 
 chmod 0755 "${LAUNCHER_FILE}"
 
-# --- launch_in_terminal: open the .command launcher in the user's terminal ---
 # Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
 # so it triggers no macOS accessibility prompt and no stray empty windows.
 # With PREFERRED_TERM empty, the launcher opens in your default handler for

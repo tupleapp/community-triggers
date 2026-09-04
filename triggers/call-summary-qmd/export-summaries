@@ -131,12 +131,6 @@ def main():
     for call in calls:
         if not isinstance(call, dict) or not call.get("call_id"):
             continue
-        # Only calls carrying a title or summary. A transcript alone has nothing
-        # to search here — this indexes summaries, not transcripts — and a
-        # placeholder saying "no summary yet" is worse than an absence: it matches
-        # queries on its own boilerplate. Nothing summarises old calls
-        # retroactively, so those placeholders would never be filled in either.
-        # A summary added later is picked up on the next run inside the window.
         if not ((call.get("summary") or "").strip() or (call.get("title") or "").strip()):
             continue
         start = local(call.get("started_at"))
@@ -145,7 +139,7 @@ def main():
 
     for name, body in wanted.items():
         path = os.path.join(OUT, name)
-        try:  # write only when the content changed, so mtimes stay stable
+        try:
             with open(path) as handle:
                 if handle.read() == body:
                     continue

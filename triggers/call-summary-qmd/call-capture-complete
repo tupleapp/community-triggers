@@ -45,10 +45,6 @@ except Exception:
 
     mkdir -p "${EXPORT_DIR}"
 
-    # Register the collection on first run, so installing the trigger is the whole
-    # setup. The update command re-exports before every future re-index, which is
-    # what keeps `qmd update` alone sufficient from then on.
-    #
     # The preferred name may already belong to an unrelated collection, and there
     # is nowhere useful to report that: this runs detached after the call ended,
     # and `tuple notifications` only posts to an *active* call (HTTP 410
@@ -65,9 +61,6 @@ except Exception:
             | sed -n "s/^[[:space:]]*$2:[[:space:]]*//p" | head -1
     }
 
-    # Persist the resolved output directory because this hook usually runs later,
-    # outside the trigger's environment. The marker lets future versions recognise
-    # their own hook without treating a matching directory as proof of ownership.
     printf -v quoted_export_dir '%q' "${EXPORT_DIR}"
     printf -v quoted_exporter '%q' "${EXPORTER}"
     want_update=": tuple-call-summary-qmd; TUPLE_QMD_OUT=${quoted_export_dir} ${quoted_exporter} || true"
@@ -103,8 +96,6 @@ except Exception:
                 continue
                 ;;
             esac
-            # Ours from an earlier run. Keep the update command current, since the
-            # exporter moves if the trigger directory does.
             if [ "${existing_update}" != "${want_update}" ]; then
                 echo "call-summary-qmd: refreshing update command on '${candidate}'"
                 if ! qmd collection update-cmd "${candidate}" "${want_update}"; then

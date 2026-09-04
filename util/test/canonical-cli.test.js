@@ -211,6 +211,11 @@ test("structured Capture reads request JSON explicitly", () => {
     sidekick,
     /\["capture", "next", "--recording", RECORDING_ID,[^\n]+"--exclude", "content", "--format", "json"\]/,
   );
+  assert.match(sidekick, /if \(cursor\) args\.push\("--cursor", cursor\)/);
+  assert.match(sidekick, /Number\.isSafeInteger\(rec\?\.id\)/);
+  assert.match(sidekick, /if \(batch\.cursor\) cursor = batch\.cursor/);
+  assert.doesNotMatch(sidekick, /sidecar-\$\{Date\.now\(\)\}/);
+  assert.match(sidekick, /if \(type === RECORDING_END\) ended = true/);
   assert.match(sidekick, /err\?\.stderr/);
 });
 

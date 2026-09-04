@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# slack-call-summary-codex: when a Tuple transcription completes, run a headless
-# Codex that summarizes the call, writes the title + summary back onto the call
-# (so they show up in Tuple's Call History), and DMs the summary to Slack.
-#
-# No live-call machinery and no `tuple connect` — this is a one-shot. The trigger
-# writes a plain prompt and launches Codex headless; Codex finds the call,
-# reads its stored transcript with the `tuple` CLI, and does the work. The
-# transcription triggers receive no call-specific args, so Codex resolves the
-# call id itself.
-
 LOG=/tmp/tuple-trigger-debug.log
 {
     printf '\n=== %s call-transcription-complete fired (slack-call-summary-codex) ===\n' "$(date -u +%FT%TZ)"

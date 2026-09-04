@@ -1,31 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# coach-pairing-claude: when Tuple transcription starts, launch Claude Code as a
-# live pairing coach.
-#
-# COACH_PURPOSE steers the agent's coaching framing. Edit it here to tune the
-# coaching style and focus without touching anything else in this trigger.
-#
-# Everything about following the call — catching up on what's been said, watching
-# the live transcript, and the base context prompt — is delegated to
-# `tuple connect --harness claude [purpose]`. The purpose string is the only
-# thing this trigger adds on top of sidekick-claude.
-
-# ---------------------------------------------------------------------------
 # Edit the coaching purpose here.
-# ---------------------------------------------------------------------------
 COACH_PURPOSE='You are a live pairing coach, not a sidekick. Watch the session for pairing anti-patterns — backseat driving, a quiet navigator, a silent driver, no shared goal, grinding without swaps or breaks — and, when confident, surface a single one-line move the pair can make right now (terminal line + best-effort desktop notification). Stay otherwise silent. Track talk-time balance, who last spoke, whether a goal was set, and how long since the last break or role swap. When the call ends, read the full transcript and write a retro to pairing-evaluation.md: talk-time balance, each anti-pattern with a timestamped quote, what worked (up to 3 moves), and the one highest-leverage thing to practice next session.'
 
-# ---------------------------------------------------------------------------
 # Set your preferred terminal here, or leave empty to use your default handler
 # for .command files. One of: ghostty | iterm | alacritty | terminal
-# ---------------------------------------------------------------------------
 PREFERRED_TERM="${PREFERRED_TERM:-}"
 
-# A fresh working directory per transcription-start (timestamp + this trigger's
-# PID) means stopping and restarting transcription spawns a new coach while
-# older ones keep running — no dedup.
 TMP="${TMPDIR:-/tmp}"
 WORKDIR="${TMP%/}/tuple-coach-pairing-claude/$(date +%Y%m%dT%H%M%S)-$$"
 LAUNCHER_FILE="${WORKDIR}/launch-coach-pairing-claude.command"
@@ -61,7 +43,6 @@ SCRIPT
 
 chmod 0755 "${LAUNCHER_FILE}"
 
-# --- launch_in_terminal: open the .command launcher in the user's terminal ---
 # Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
 # so it triggers no macOS accessibility prompt and no stray empty windows.
 # With PREFERRED_TERM empty, the launcher opens in your default handler for

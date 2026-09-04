@@ -18,7 +18,7 @@ const WATCH_WORDS = ["pi", "pie"];
 const STREAM_TIMEOUT = "30s"; // each next returns empty after this much silence so the loop re-checks
 const CATCHUP_MAX_LINES = 300; // cap the "call so far" backlog so a late join doesn't flood Pi's context
 const SKIP_EVENT_CATEGORIES = new Set(["user_audio_started", "user_audio_stopped"]);
-const CHECKPOINT_EVENT_CATEGORIES = new Set(["recording_ended"]);
+const RECORDING_END = "recording_ended";
 const SCREEN_START = "user_screen_sharing_started";
 const SCREEN_STOP = "user_screen_sharing_stopped";
 
@@ -30,15 +30,12 @@ const MODE_DESC: Record<WatchMode, string> = {
   low_noise: "batch up to ~20s — for presentations or long monologues",
 };
 
-// Build the `capture next` args for a watch mode. The recording selector keeps
-// this trigger scoped to the session that fired it; excluding content retains the
-// transcript and lifecycle events the companion uses. Explicit JSON makes the
-// successful stream and stderr failures structured.
 // The non-obvious rule: the CLI rejects --watch-words without --interval, and
 // realtime (no interval) flushes on every pause anyway — so watch words ride along
 // only when an interval is set.
 function buildStreamArgs(watchWords: string[], watchMode: WatchMode, cursor: string): string[] {
-  const args = ["capture", "next", "--recording", RECORDING_ID, "--cursor", cursor, "--timeout", STREAM_TIMEOUT, "--exclude", "content", "--format", "json"];
+  const args = ["capture", "next", "--recording", RECORDING_ID, "--timeout", STREAM_TIMEOUT, "--exclude", "content", "--format", "json"];
+  if (cursor) args.push("--cursor", cursor);
   const interval = MODE_INTERVAL[watchMode];
   if (interval) {
     args.push("--interval", interval);
@@ -194,6 +191,7 @@ export default function (pi: ExtensionAPI) {
     // Otherwise the record is a call-event category; `type` is the category.
     if (type === SCREEN_START) screenSharing = true;
     if (type === SCREEN_STOP) screenSharing = false;
+    if (type === RECORDING_END) ended = true;
     if (data.user) {
       const id = userIdKey(data.user);
       const name = displayName(data.user);
@@ -203,16 +201,24 @@ export default function (pi: ExtensionAPI) {
     if (SKIP_EVENT_CATEGORIES.has(type)) return null;
     return {
       line: `- ${hms(rec.time)} event: ${type}${data.message ? ` (${data.message})` : ""}`,
-      requiresResponse: CHECKPOINT_EVENT_CATEGORIES.has(type),
+      requiresResponse: type === RECORDING_END,
       sortMs: timestampMs(rec.time),
     };
   }
 
-  function parseBatch(out: string): { lines: string[]; requiresResponse: boolean } {
+  function parseBatch(out: string): { lines: string[]; requiresResponse: boolean; cursor: string } {
     const records: ParsedLine[] = [];
+    let highestRecordId = 0;
     for (const raw of out.split("\n")) {
       const trimmed = raw.trim();
       if (!trimmed) continue;
+      try {
+        const rec = JSON.parse(trimmed);
+        if (Number.isSafeInteger(rec?.id) && rec.id > highestRecordId) {
+          highestRecordId = rec.id;
+        }
+      } catch {
+      }
       const rec = readEnvelope(trimmed);
       if (rec) records.push(rec);
     }
@@ -220,7 +226,11 @@ export default function (pi: ExtensionAPI) {
     // deterministically — never produce NaN in the comparator.
     const key = (r: ParsedLine) => (Number.isFinite(r.sortMs) ? r.sortMs : Number.MAX_SAFE_INTEGER);
     records.sort((a, b) => key(a) - key(b));
-    return { lines: records.map((r) => r.line), requiresResponse: records.some((r) => r.requiresResponse) };
+    return {
+      lines: records.map((r) => r.line),
+      requiresResponse: records.some((r) => r.requiresResponse),
+      cursor: highestRecordId ? String(highestRecordId) : "",
+    };
   }
 
   // Push a batch into the main thread. Plain triggerTurn starts a turn when Pi is
@@ -230,11 +240,10 @@ export default function (pi: ExtensionAPI) {
     pi.sendMessage({ customType: "tuple-call-sidekick", content, display: false }, { triggerTurn: true });
   }
 
-  // `capture next` persists the position for each (recording, cursor-tag) pair.
-  // This process reuses one tag for gap-free iterations; a restarted process gets
-  // a new tag and catches up again rather than resuming the previous position.
+  // Each response carries numeric record ids; the next request resumes after the
+  // highest one. A restarted process has no cursor and catches up again.
   async function followLoop(ctx: any) {
-    const cursor = `sidecar-${Date.now()}`;
+    let cursor = "";
     let first = true;
     let consecutiveErrors = 0;
     while (!stopped && !ended) {
@@ -255,7 +264,9 @@ export default function (pi: ExtensionAPI) {
       }
       if (!out.trim()) continue; // silence window elapsed; re-check
 
-      const { lines, requiresResponse } = parseBatch(out);
+      const batch = parseBatch(out);
+      if (batch.cursor) cursor = batch.cursor;
+      const { lines, requiresResponse } = batch;
       if (lines.length) {
         batchCount += 1;
         setStatus(ctx);
