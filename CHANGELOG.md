@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Migrate every community trigger and copied command example to the canonical
-  Tuple CLI. The command floor is `tupleapp/app@4a587f47e6`; publishing also
-  requires the `call-capture-*` event dispatch from `tupleapp/app#4033`.
+- Migrate every `call-capture-*` trigger and its copied command examples to the
+  canonical Tuple CLI. The parallel `call-transcription-*` compatibility files
+  remain on the legacy CLI until the renamed app release has rolled out.
 - Keep completed-call summaries pinned to the triggering
   `TUPLE_TRIGGER_RECORDING_ID`; transcript-only summaries explicitly exclude
   `events,content`, while Slack and qmd summaries keep lifecycle events and
@@ -19,9 +19,8 @@
   event executables remain `call-capture-started` and
   `call-capture-complete`.
 
-The canonical CLI is newer than the latest tagged Tuple staging release
-(`3.3.10`) as of 2026-09-02, and `origin/master@4a587f47e6` still dispatches
-`call-transcription-*`. Do not publish this cutover until app PR #4033 lands on
-a descendant of `4a587f47e6` and both lifecycle events pass an installed-trigger
-smoke test. Then replace this two-part commit/PR floor with the first released
-Tuple version that contains both contracts.
+The dual event files make this package safe across the rollout: the current
+stable app dispatches the legacy files, while the upcoming app dispatches the
+Capture files. Remove the compatibility files only after the first released
+Tuple version containing both the canonical CLI and renamed events has rolled
+out and both installed lifecycle events pass a smoke test.

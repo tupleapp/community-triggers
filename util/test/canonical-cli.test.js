@@ -46,6 +46,13 @@ const connectStartedTriggers = [
   "sidekick-pi",
 ];
 
+const legacyCompatibilityBasenames = new Set([
+  "call-transcription-started",
+  "call-transcription-complete",
+  "export-summaries-transcription",
+  "tuple-call-sidekick-transcription.ts",
+]);
+
 function textFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const target = path.join(directory, entry.name);
@@ -75,11 +82,38 @@ test("published triggers contain no retired Tuple CLI examples", () => {
   ];
 
   for (const file of textFiles(triggersRoot)) {
+    if (legacyCompatibilityBasenames.has(path.basename(file))) continue;
     const contents = fs.readFileSync(file, "utf8");
     for (const pattern of retired) {
       assert.doesNotMatch(contents, pattern, path.relative(root, file));
     }
   }
+});
+
+test("legacy compatibility helpers retain the transcription CLI", () => {
+  const qmdTrigger = fs.readFileSync(
+    path.join(triggersRoot, "call-summary-qmd", "call-transcription-complete"),
+    "utf8",
+  );
+  assert.match(qmdTrigger, /export-summaries-transcription/);
+
+  const qmdExporter = fs.readFileSync(
+    path.join(triggersRoot, "call-summary-qmd", "export-summaries-transcription"),
+    "utf8",
+  );
+  assert.match(qmdExporter, /\[TUPLE, "transcription", "list"/);
+
+  const piTrigger = fs.readFileSync(
+    path.join(triggersRoot, "sidekick-pi", "call-transcription-started"),
+    "utf8",
+  );
+  assert.match(piTrigger, /tuple-call-sidekick-transcription\.ts/);
+
+  const piExtension = fs.readFileSync(
+    path.join(triggersRoot, "sidekick-pi", "tuple-call-sidekick-transcription.ts"),
+    "utf8",
+  );
+  assert.match(piExtension, /\["transcription", "show", "--wait"/);
 });
 
 test("completed Capture consumers retain recording scope", () => {
@@ -180,11 +214,12 @@ test("structured Capture reads request JSON explicitly", () => {
   assert.match(sidekick, /err\?\.stderr/);
 });
 
-test("release notes retain the two-part unpublished app floor", () => {
+test("release notes retain the compatibility removal gate", () => {
   const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
   const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
 
-  assert.match(readme, /tupleapp\/app@4a587f47e6/);
-  assert.match(readme, /tupleapp\/app#4033/);
-  assert.match(changelog, /Do not publish this cutover until app PR #4033 lands/);
+  assert.match(readme, /temporarily ship two event\s+executables/);
+  assert.match(readme, /remove the legacy files and frozen helpers.*rolled out/s);
+  assert.match(changelog, /Remove the compatibility files only after/);
+  assert.match(changelog, /installed lifecycle events pass a smoke test/);
 });

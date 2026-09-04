@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# sidekick-cursor: when Tuple transcription starts, launch Cursor as a live
+# call companion.
+#
+# Everything about following the call — catching up on what's been said, watching
+# the live transcript, and the context prompt — is delegated to
+# `tuple connect --harness cursor`. The transcription triggers receive no
+# call-specific args, so this trigger just opens a terminal in a fresh working
+# directory and hands off to connect; connect's prompt drives the rest, so the
+# trigger never needs to change when the call format or prompt does.
+
+# Set your preferred terminal here, or leave empty to use your default handler
+# for .command files. One of: ghostty | iterm | alacritty | terminal
+PREFERRED_TERM="${PREFERRED_TERM:-}"
+
+# A fresh working directory per transcription-start (timestamp + this trigger's
+# PID) means stopping and restarting transcription spawns a new companion while
+# older ones keep running — no dedup.
+TMP="${TMPDIR:-/tmp}"
+WORKDIR="${TMP%/}/tuple-sidekick-cursor/$(date +%Y%m%dT%H%M%S)-$$"
+LAUNCHER_FILE="${WORKDIR}/launch-sidekick-cursor.command"
+mkdir -p "${WORKDIR}"
+
+# The launcher runs as a login-interactive zsh so `tuple` and `cursor-agent` resolve from
+# the same PATH you get in a fresh terminal.
+cat > "${LAUNCHER_FILE}" <<'SCRIPT'
+#!/bin/zsh -li
+printf '\e]0;Tuple Cursor Sidekick\a'
+clear
+echo 'Connecting Cursor to the call...'
+echo
+
+cd "${0:A:h}" || exit 1
+
+if ! command -v tuple >/dev/null 2>&1; then
+    echo "tuple was not found on your interactive shell PATH."
+    echo "Make sure 'tuple' works in a new terminal, then run the trigger again."
+    echo
+    read '?Press return to close.'
+    exit 127
+fi
+
+exec tuple connect --harness cursor
+SCRIPT
+
+chmod 0755 "${LAUNCHER_FILE}"
+
+# --- launch_in_terminal: open the .command launcher in the user's terminal ---
+# Uses LaunchServices (`open`) only — no direct binary exec and no AppleScript,
+# so it triggers no macOS accessibility prompt and no stray empty windows.
+# With PREFERRED_TERM empty, the launcher opens in your default handler for
+# .command files (change it in Finder: right-click a .command > Open With >
+# your terminal > Change All). Set PREFERRED_TERM to force one for this trigger.
+# Ghostty, iTerm, and Terminal run an opened .command directly; Alacritty has no
+# document handler, so it is launched with `open -na ... --args -e`.
+launch_in_terminal() {
+    local file="$1"
+    case "${PREFERRED_TERM:-}" in
+    "") open "$file" ;;
+    ghostty) open -a "Ghostty" "$file" 2>/dev/null || open "$file" ;;
+    iterm) open -a "iTerm" "$file" 2>/dev/null || open "$file" ;;
+    terminal) open -a "Terminal" "$file" 2>/dev/null || open "$file" ;;
+    alacritty) open -na "Alacritty" --args -e "$file" 2>/dev/null || open "$file" ;;
+    *) echo "launch_in_terminal: unknown PREFERRED_TERM='${PREFERRED_TERM}'; using default handler" >&2; open "$file" ;;
+    esac
+}
+
+if [ "${SIDEKICK_CURSOR_DRY_RUN:-}" = "1" ]; then
+    echo "sidekick-cursor: dry run generated ${LAUNCHER_FILE}"
+    exit 0
+fi
+
+launch_in_terminal "${LAUNCHER_FILE}"
