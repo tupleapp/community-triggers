@@ -1,7 +1,5 @@
 const assert = require("node:assert/strict");
-const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -48,26 +46,6 @@ const connectStartedTriggers = [
   "sidekick-pi",
 ];
 
-const legacyCompatibilityBasenames = new Set([
-  "call-transcription-started",
-  "call-transcription-complete",
-  "export-summaries-transcription",
-  "tuple-call-sidekick-transcription.ts",
-]);
-
-const legacyCompletedTriggerDryRuns = [
-  ["call-summary-claude-cowork", "CALL_SUMMARY_COWORK_DRY_RUN"],
-  ["call-summary-claude", "CALL_SUMMARY_CLAUDE_DRY_RUN"],
-  ["call-summary-codex", "CALL_SUMMARY_CODEX_DRY_RUN"],
-  ["call-summary-copilot", "CALL_SUMMARY_COPILOT_DRY_RUN"],
-  ["call-summary-cursor", "CALL_SUMMARY_CURSOR_DRY_RUN"],
-  ["call-summary-opencode", "CALL_SUMMARY_OPENCODE_DRY_RUN"],
-  ["call-summary-pi", "CALL_SUMMARY_PI_DRY_RUN"],
-  ["call-summary-qmd", "CALL_SUMMARY_QMD_DRY_RUN"],
-  ["slack-call-summary-claude", "SLACK_CALL_SUMMARY_CLAUDE_DRY_RUN"],
-  ["slack-call-summary-codex", "SLACK_CALL_SUMMARY_CODEX_DRY_RUN"],
-];
-
 function textFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const target = path.join(directory, entry.name);
@@ -76,51 +54,6 @@ function textFiles(directory) {
     }
     return entry.name === ".DS_Store" ? [] : [target];
   });
-}
-
-function renderLegacyPrompt(triggerName, dryRunVariable, callArgument, environmentCallId) {
-  const temporaryDirectory = fs.mkdtempSync(
-    path.join(os.tmpdir(), "legacy-call-scope-"),
-  );
-  const script = path.join(
-    triggersRoot,
-    triggerName,
-    "call-transcription-complete",
-  );
-  const args = callArgument ? [callArgument] : [];
-  const env = {
-    ...process.env,
-    TMPDIR: temporaryDirectory,
-    [dryRunVariable]: "1",
-  };
-  if (environmentCallId) {
-    env.TUPLE_TRIGGER_CALL_ID = environmentCallId;
-  } else {
-    delete env.TUPLE_TRIGGER_CALL_ID;
-  }
-
-  try {
-    const result = spawnSync(script, args, {
-      cwd: root,
-      env,
-      encoding: "utf8",
-    });
-    assert.equal(result.status, 0, `${triggerName}: ${result.stderr}`);
-
-    if (triggerName === "call-summary-claude-cowork") {
-      const match = result.stdout.match(/claude:\/\/cowork\/new\?q=(\S+)/);
-      assert.ok(match, `${triggerName}: missing dry-run deep link`);
-      return decodeURIComponent(match[1]);
-    }
-
-    const prompts = textFiles(temporaryDirectory).filter((file) =>
-      file.endsWith("-prompt.md"),
-    );
-    assert.equal(prompts.length, 1, `${triggerName}: expected one prompt`);
-    return fs.readFileSync(prompts[0], "utf8");
-  } finally {
-    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
-  }
 }
 
 function triggerNamesWithEvent(eventName) {
@@ -142,78 +75,15 @@ test("published triggers contain no retired Tuple CLI examples", () => {
   ];
 
   for (const file of textFiles(triggersRoot)) {
-    if (legacyCompatibilityBasenames.has(path.basename(file))) continue;
+    assert.doesNotMatch(
+      path.basename(file),
+      /^call-transcription-(started|complete)$/,
+      path.relative(root, file),
+    );
     const contents = fs.readFileSync(file, "utf8");
     for (const pattern of retired) {
       assert.doesNotMatch(contents, pattern, path.relative(root, file));
     }
-  }
-});
-
-test("legacy compatibility helpers retain the transcription CLI", () => {
-  const qmdTrigger = fs.readFileSync(
-    path.join(triggersRoot, "call-summary-qmd", "call-transcription-complete"),
-    "utf8",
-  );
-  assert.match(qmdTrigger, /export-summaries-transcription/);
-
-  const qmdExporter = fs.readFileSync(
-    path.join(triggersRoot, "call-summary-qmd", "export-summaries-transcription"),
-    "utf8",
-  );
-  assert.match(qmdExporter, /\[TUPLE, "transcription", "list"/);
-
-  const piTrigger = fs.readFileSync(
-    path.join(triggersRoot, "sidekick-pi", "call-transcription-started"),
-    "utf8",
-  );
-  assert.match(piTrigger, /tuple-call-sidekick-transcription\.ts/);
-
-  const piExtension = fs.readFileSync(
-    path.join(triggersRoot, "sidekick-pi", "tuple-call-sidekick-transcription.ts"),
-    "utf8",
-  );
-  assert.match(piExtension, /\["transcription", "show", "--wait"/);
-});
-
-test("legacy completed triggers preserve the triggering call id", () => {
-  assert.deepEqual(
-    triggerNamesWithEvent("call-transcription-complete"),
-    [...recordingScopedCompletedTriggers].sort(),
-  );
-
-  for (const [triggerName, dryRunVariable] of legacyCompletedTriggerDryRuns) {
-    const positionalId = "11111111-1111-1111-1111-111111111111";
-    const environmentId = "22222222-2222-2222-2222-222222222222";
-    const positionalPrompt = renderLegacyPrompt(
-      triggerName,
-      dryRunVariable,
-      positionalId,
-      environmentId,
-    );
-    assert.match(positionalPrompt, new RegExp(positionalId), triggerName);
-    assert.doesNotMatch(positionalPrompt, new RegExp(environmentId), triggerName);
-
-    const environmentPrompt = renderLegacyPrompt(
-      triggerName,
-      dryRunVariable,
-      "",
-      environmentId,
-    );
-    assert.match(environmentPrompt, new RegExp(environmentId), triggerName);
-
-    const fallbackPrompt = renderLegacyPrompt(
-      triggerName,
-      dryRunVariable,
-      "",
-      "",
-    );
-    assert.match(
-      fallbackPrompt,
-      /tuple call current|tuple transcription list/,
-      triggerName,
-    );
-    assert.doesNotMatch(fallbackPrompt, /## Triggering call\n/, triggerName);
   }
 });
 
@@ -322,14 +192,4 @@ test("structured Capture reads request JSON explicitly", () => {
   assert.match(sidekick, /const isInitialBatch = first/);
   assert.match(sidekick, /if \(isInitialBatch && !ended\)/);
   assert.match(sidekick, /err\?\.stderr/);
-});
-
-test("release notes retain the compatibility removal gate", () => {
-  const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
-  const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-
-  assert.match(readme, /temporarily ship two event\s+executables/);
-  assert.match(readme, /remove the legacy files and frozen helpers.*rolled out/s);
-  assert.match(changelog, /Remove the compatibility files only after/);
-  assert.match(changelog, /installed lifecycle events pass a smoke test/);
 });
