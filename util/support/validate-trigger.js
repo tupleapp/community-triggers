@@ -1,25 +1,11 @@
 const { z } = require("zod");
-const { existsSync, readFileSync, statSync } = require("fs");
+const { existsSync, readFileSync } = require("fs");
 const {
   AVAILABLE_TRIGGERS,
   AVAILABLE_PLATFORMS,
   AVAILABLE_LANGUAGES,
   AVAILABLE_CATEGORIES,
 } = require("./config");
-
-const CAPTURE_TRANSITION_PAIRS = [
-  ["call-capture-started", "call-transcription-started"],
-  ["call-capture-complete", "call-transcription-complete"],
-];
-
-function isExecutableFile(path) {
-  try {
-    const stat = statSync(path);
-    return stat.isFile() && (stat.mode & 0o111) !== 0;
-  } catch {
-    return false;
-  }
-}
 
 const configSchema = z.object({
   name: z.string({
@@ -131,22 +117,6 @@ module.exports = function validateTrigger(triggerName) {
         `We couldn't find any trigger files in \`${path}\`. Try adding an executable file with one of the following names: ${AVAILABLE_TRIGGERS.map(
           (h) => `\`${h}\``
         ).join(", ")}.`,
-      ],
-    };
-  }
-
-  const incompleteCaptureTransition = CAPTURE_TRANSITION_PAIRS.find(
-    ([captureTrigger, transcriptionTrigger]) =>
-      existsSync(`${path}/${captureTrigger}`) &&
-      (!isExecutableFile(`${path}/${captureTrigger}`) ||
-        !isExecutableFile(`${path}/${transcriptionTrigger}`))
-  );
-  if (incompleteCaptureTransition) {
-    const [captureTrigger, transcriptionTrigger] = incompleteCaptureTransition;
-    return {
-      success: false,
-      errors: [
-        `During the Capture event transition, \`${captureTrigger}\` and \`${transcriptionTrigger}\` must both be executable.`,
       ],
     };
   }
