@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Add Claude Desktop and ChatGPT Desktop sidekicks, plus a ChatGPT Desktop
+  call-summary trigger. Desktop triggers open local agent sessions through each
+  app's native URL scheme and pass version-matched `tuple connect prompt`
+  instructions for live calls.
+- Route the Claude Cowork call summary through Claude Code inside Claude
+  Desktop so it can reach the local Tuple CLI, and make desktop deep-link
+  prompt encoding UTF-8 safe.
+- Use `~/.tuple/tuple-calls/` as the shared desktop-agent project, create it
+  automatically, and support a `TUPLE_DESKTOP_WORKSPACE_ROOT` override.
+- Resolve the desktop sidekicks' Tuple CLI from the running app bundle, with a
+  `TUPLE_BIN` override for custom installations.
+- Preserve `TUPLE_BIN` in desktop summary prompts so custom CLI installations
+  read and update the triggering recording.
 - Target Tuple Capture 3.3.0 for Capture-based triggers and remove the
   transitional `call-transcription-*` executables and frozen CLI helpers.
 - Keep completed-call summaries pinned to the triggering

@@ -1,12 +1,15 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 
 const root = path.resolve(__dirname, "../..");
 const triggersRoot = path.join(root, "triggers");
 
 const recordingScopedCompletedTriggers = [
+  "call-summary-chatgpt-desktop",
   "call-summary-claude-cowork",
   "call-summary-claude",
   "call-summary-codex",
@@ -20,6 +23,7 @@ const recordingScopedCompletedTriggers = [
 ];
 
 const transcriptOnlyTextCompletedTriggers = [
+  "call-summary-chatgpt-desktop",
   "call-summary-claude-cowork",
   "call-summary-claude",
   "call-summary-codex",
@@ -44,6 +48,11 @@ const connectStartedTriggers = [
   "sidekick-cursor",
   "sidekick-opencode",
   "sidekick-pi",
+];
+
+const promptStartedTriggers = [
+  "sidekick-chatgpt-desktop",
+  "sidekick-claude-desktop",
 ];
 
 function textFiles(directory) {
@@ -104,7 +113,7 @@ test("completed Capture consumers retain recording scope", () => {
     assert.match(contents, /TUPLE_TRIGGER_RECORDING_ID/, triggerName);
     assert.match(
       contents,
-      /tuple capture show --recording (?:"\$TUPLE_TRIGGER_RECORDING_ID"|<recording-id-above>)/,
+      /(?:tuple|%s) capture show --recording (?:"\$TUPLE_TRIGGER_RECORDING_ID"|<recording-id-above>)/,
       triggerName,
     );
   }
@@ -116,7 +125,7 @@ test("completed Capture consumers retain recording scope", () => {
     );
     assert.match(
       contents,
-      /tuple capture show --recording (?:(?:"\$TUPLE_TRIGGER_RECORDING_ID")|(?:<recording-id-above>)) --exclude events,content/,
+      /(?:tuple|%s) capture show --recording (?:(?:"\$TUPLE_TRIGGER_RECORDING_ID")|(?:<recording-id-above>)) --exclude events,content/,
       triggerName,
     );
   }
@@ -138,7 +147,7 @@ test("completed Capture consumers retain recording scope", () => {
 test("live connect launchers preserve trigger context", () => {
   assert.deepEqual(
     triggerNamesWithEvent("call-capture-started"),
-    [...connectStartedTriggers].sort(),
+    [...connectStartedTriggers, ...promptStartedTriggers].sort(),
   );
 
   for (const triggerName of connectStartedTriggers) {
@@ -153,6 +162,165 @@ test("live connect launchers preserve trigger context", () => {
     assert.match(trigger, /source .*trigger-context\.sh/, triggerName);
     assert.match(trigger, /tuple connect --harness/, triggerName);
   }
+});
+
+test("desktop sidekicks open a live prompt for the triggering call", (t) => {
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), "tuple-trigger-test-"));
+  t.after(() => fs.rmSync(bin, { recursive: true, force: true }));
+
+  const tuple = path.join(bin, "custom-tuple");
+  fs.writeFileSync(
+    tuple,
+    `#!/bin/sh
+printf '%s\n' "$*" > "$TUPLE_TEST_ARGS"
+printf "live prompt for %s" "$4"
+`,
+  );
+  fs.chmodSync(tuple, 0o755);
+
+  const cases = [
+    {
+      name: "sidekick-claude-desktop",
+      dryRun: "SIDEKICK_CLAUDE_DESKTOP_DRY_RUN",
+      outputPrefix: "sidekick-claude-desktop: dry run — would open ",
+      protocol: "claude:",
+      host: "code",
+      directoryParameter: "folder",
+    },
+    {
+      name: "sidekick-chatgpt-desktop",
+      dryRun: "SIDEKICK_CHATGPT_DESKTOP_DRY_RUN",
+      outputPrefix: "sidekick-chatgpt-desktop: dry run — would open ",
+      protocol: "codex:",
+      host: "threads",
+      directoryParameter: "path",
+    },
+  ];
+
+  for (const item of cases) {
+    const argsFile = path.join(bin, `${item.name}-args`);
+    const result = spawnSync(
+      path.join(triggersRoot, item.name, "call-capture-started"),
+      [],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+          TUPLE_BIN: tuple,
+          TUPLE_TEST_ARGS: argsFile,
+          TUPLE_DESKTOP_WORKSPACE_ROOT: bin,
+          TUPLE_TRIGGER_CALL_ID: "call/ü",
+          TUPLE_TRIGGER_RECORDING_ID: "recording-id",
+          [item.dryRun]: "1",
+        },
+      },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.equal(
+      fs.readFileSync(argsFile, "utf8"),
+      "connect prompt --call call/ü\n",
+    );
+    assert.ok(result.stdout.startsWith(item.outputPrefix));
+
+    const url = new URL(result.stdout.slice(item.outputPrefix.length).trim());
+    assert.equal(url.protocol, item.protocol);
+    assert.equal(url.host, item.host);
+    assert.equal(url.pathname, "/new");
+    assert.equal(url.searchParams.get("prompt"), "live prompt for call/ü");
+
+    const workingDirectory = url.searchParams.get(item.directoryParameter);
+    assert.equal(workingDirectory, bin);
+    assert.equal(fs.statSync(workingDirectory).isDirectory(), true);
+
+    if (item.name === "sidekick-chatgpt-desktop") {
+      assert.equal(url.searchParams.get("mode"), "work");
+    }
+  }
+});
+
+test("desktop summaries open a local prompt for the triggering recording", (t) => {
+  const temporaryDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "tuple-summary-trigger-test-"),
+  );
+  t.after(() =>
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true }),
+  );
+
+  const cases = [
+    {
+      name: "call-summary-claude-cowork",
+      dryRun: "CALL_SUMMARY_COWORK_DRY_RUN",
+      outputPrefix: "call-summary-claude-cowork: dry run — would open ",
+      protocol: "claude:",
+      host: "code",
+      directoryParameter: "folder",
+    },
+    {
+      name: "call-summary-chatgpt-desktop",
+      dryRun: "CALL_SUMMARY_CHATGPT_DESKTOP_DRY_RUN",
+      outputPrefix:
+        "call-summary-chatgpt-desktop: dry run — would open ",
+      protocol: "codex:",
+      host: "threads",
+      directoryParameter: "path",
+    },
+  ];
+
+  for (const item of cases) {
+    const result = spawnSync(
+      path.join(triggersRoot, item.name, "call-capture-complete"),
+      [],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          HOME: temporaryDirectory,
+          TUPLE_BIN: "/custom/tuple-bin",
+          TUPLE_DESKTOP_WORKSPACE_ROOT: "",
+          TUPLE_TRIGGER_CALL_ID: "call/ü",
+          TUPLE_TRIGGER_RECORDING_ID: "recording-id",
+          [item.dryRun]: "1",
+        },
+      },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.ok(result.stdout.startsWith(item.outputPrefix));
+
+    const url = new URL(result.stdout.slice(item.outputPrefix.length).trim());
+    assert.equal(url.protocol, item.protocol);
+    assert.equal(url.host, item.host);
+    assert.equal(url.pathname, "/new");
+    assert.match(url.searchParams.get("prompt"), /Call ID: `call\/ü`/);
+    assert.match(
+      url.searchParams.get("prompt"),
+      /Recording ID: `recording-id`/,
+    );
+    assert.match(
+      url.searchParams.get("prompt"),
+      /\/custom\/tuple-bin capture show --recording <recording-id-above>/,
+    );
+    assert.match(
+      url.searchParams.get("prompt"),
+      /\/custom\/tuple-bin call edit <call-id-above>/,
+    );
+
+    const workingDirectory = url.searchParams.get(item.directoryParameter);
+    assert.equal(
+      workingDirectory,
+      path.join(temporaryDirectory, ".tuple", "tuple-calls"),
+    );
+    assert.equal(fs.statSync(workingDirectory).isDirectory(), true);
+
+    if (item.name === "call-summary-chatgpt-desktop") {
+      assert.equal(url.searchParams.get("mode"), "work");
+    }
+  }
+
 });
 
 test("structured Capture reads request JSON explicitly", () => {

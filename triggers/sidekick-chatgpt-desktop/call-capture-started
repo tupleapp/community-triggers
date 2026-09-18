@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?sidekick-chatgpt-desktop requires TUPLE_TRIGGER_CALL_ID}"
+: "${TUPLE_TRIGGER_RECORDING_ID:?sidekick-chatgpt-desktop requires TUPLE_TRIGGER_RECORDING_ID}"
+
+# TUPLE_BIN="$HOME/bin/tuple"
+# TUPLE_DESKTOP_WORKSPACE_ROOT="$HOME/Developer/tuple-calls"
+if [ -n "${TUPLE_DESKTOP_WORKSPACE_ROOT:-}" ]; then
+    WORKDIR="${TUPLE_DESKTOP_WORKSPACE_ROOT}"
+else
+    WORKDIR="${HOME}/.tuple/tuple-calls"
+fi
+
+if [ -n "${TUPLE_BIN:-}" ]; then
+    if ! TUPLE_CLI="$(command -v "${TUPLE_BIN}")"; then
+        echo "sidekick-chatgpt-desktop: TUPLE_BIN is not executable: ${TUPLE_BIN}" >&2
+        exit 127
+    fi
+elif TUPLE_CLI="$(command -v tuple)"; then
+    :
+elif [ -x "/Applications/Tuple.app/Contents/SharedSupport/bin/tuple" ]; then
+    TUPLE_CLI="/Applications/Tuple.app/Contents/SharedSupport/bin/tuple"
+else
+    echo "sidekick-chatgpt-desktop: could not find the Tuple CLI; set TUPLE_BIN to its path" >&2
+    exit 127
+fi
+
+urlencode() {
+    local LC_ALL=C
+    local string="${1}"
+    local encoded=""
+    local pos char byte
+
+    for ((pos = 0; pos < ${#string}; pos++)); do
+        char="${string:${pos}:1}"
+        case "${char}" in
+            [a-zA-Z0-9.~_-]) encoded+="${char}" ;;
+            *)
+                printf -v byte '%d' "'${char}"
+                printf -v encoded '%s%%%02X' "${encoded}" "$((byte & 255))"
+                ;;
+        esac
+    done
+
+    printf '%s' "${encoded}"
+}
+
+mkdir -p "${WORKDIR}"
+
+PROMPT="$("${TUPLE_CLI}" connect prompt --call "${CALL_ID}")"
+DEEPLINK="codex://threads/new?mode=work&path=$(urlencode "${WORKDIR}")&prompt=$(urlencode "${PROMPT}")"
+
+if [ "${SIDEKICK_CHATGPT_DESKTOP_DRY_RUN:-}" = "1" ]; then
+    echo "sidekick-chatgpt-desktop: dry run — would open ${DEEPLINK}"
+    exit 0
+fi
+
+echo "sidekick-chatgpt-desktop: opening ChatGPT Desktop"
+open -a "ChatGPT" "${DEEPLINK}"

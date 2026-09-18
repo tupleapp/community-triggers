@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CALL_ID="${TUPLE_TRIGGER_CALL_ID:?call-summary-claude-cowork requires TUPLE_TRIGGER_CALL_ID}"
-RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?call-summary-claude-cowork requires TUPLE_TRIGGER_RECORDING_ID}"
+CALL_ID="${TUPLE_TRIGGER_CALL_ID:?call-summary-chatgpt-desktop requires TUPLE_TRIGGER_CALL_ID}"
+RECORDING_ID="${TUPLE_TRIGGER_RECORDING_ID:?call-summary-chatgpt-desktop requires TUPLE_TRIGGER_RECORDING_ID}"
 
 # TUPLE_BIN="$HOME/bin/tuple"
 # TUPLE_DESKTOP_WORKSPACE_ROOT="$HOME/Developer/tuple-calls"
@@ -23,9 +23,7 @@ urlencode() {
     for ((pos = 0; pos < ${#string}; pos++)); do
         char="${string:${pos}:1}"
         case "${char}" in
-            [a-zA-Z0-9.~_-])
-                encoded+="${char}"
-                ;;
+            [a-zA-Z0-9.~_-]) encoded+="${char}" ;;
             *)
                 printf -v byte '%d' "'${char}"
                 printf -v encoded '%s%%%02X' "${encoded}" "$((byte & 255))"
@@ -48,7 +46,7 @@ PROMPT+=$(cat <<'PROMPT'
 
 ## Read it
 
-This is a transcript-only summary, so read only speech and chat from the recording ID above:
+Read only speech and chat from that recording:
 PROMPT
 )
 PROMPT+=$(printf '\n\n    %s capture show --recording <recording-id-above> --exclude events,content\n' "${TUPLE_COMMAND}")
@@ -67,19 +65,19 @@ Do not invent owners, decisions, or commitments. Use direct quotes only when the
 
 ## Write it back to the call
 
-Record the summary on the call itself so it is there in Tuple Call History:
+Record the summary in Tuple Call History:
 PROMPT
 )
 PROMPT+=$(printf '\n\n    %s call edit <call-id-above> --title "<a short, specific title for the whole call>" --summary "<your summary>"\n' "${TUPLE_COMMAND}")
 
 mkdir -p "${WORKDIR}"
 
-DEEPLINK="claude://code/new?folder=$(urlencode "${WORKDIR}")&prompt=$(urlencode "${PROMPT}")"
+DEEPLINK="codex://threads/new?mode=work&path=$(urlencode "${WORKDIR}")&prompt=$(urlencode "${PROMPT}")"
 
-if [ "${CALL_SUMMARY_COWORK_DRY_RUN:-}" = "1" ]; then
-    echo "call-summary-claude-cowork: dry run — would open ${DEEPLINK}"
+if [ "${CALL_SUMMARY_CHATGPT_DESKTOP_DRY_RUN:-}" = "1" ]; then
+    echo "call-summary-chatgpt-desktop: dry run — would open ${DEEPLINK}"
     exit 0
 fi
 
-echo "call-summary-claude-cowork: opening Claude Desktop"
-open -a "Claude" "${DEEPLINK}"
+echo "call-summary-chatgpt-desktop: opening ChatGPT Desktop"
+open -a "ChatGPT" "${DEEPLINK}"

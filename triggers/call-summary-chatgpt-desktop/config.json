@@ -1,0 +1,7 @@
+{
+  "name": "Call Summary - ChatGPT Desktop",
+  "description": "Opens ChatGPT Desktop when Capture ends to summarize the exact recording, save the title and summary to Tuple, and draft a follow-up.",
+  "category": "Call Summary",
+  "platforms": ["macos"],
+  "language": "bash"
+}
