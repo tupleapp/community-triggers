@@ -1,0 +1,7 @@
+{
+  "name": "Sidekick - Claude Desktop",
+  "description": "Opens Claude Desktop when Capture starts so Claude can follow the live transcript, keep a running play-by-play, and respond when you ask for help.",
+  "category": "Sidekick",
+  "platforms": ["macos"],
+  "language": "bash"
+}
