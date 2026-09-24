@@ -9,7 +9,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1053.0",
     "@aws-sdk/lib-dynamodb": "^3.1053.0",
-    "ejs": "^5.0.2",
+    "ejs": "^6.0.1",
     "zod": "^4.4.3"
   }
 }
