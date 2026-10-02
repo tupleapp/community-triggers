@@ -1,0 +1,7 @@
+{
+  "name": "Sidekick - Classifier Gated",
+  "description": "Launch your default Tuple Connect agent when Capture starts. Jev delivers routine conversation updates when they contain useful information and a completed thought. Bring your own API key and customize the classifier prompt.",
+  "category": "Sidekick",
+  "platforms": ["macos"],
+  "language": "python"
+}
