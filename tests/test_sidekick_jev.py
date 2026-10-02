@@ -142,7 +142,7 @@ class ClassifierTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             cases = Path(directory) / "cases.json"
             cases.write_text(json.dumps([
-                {"id": "bug", "expected": True, "text": "The cursor loses a record."},
+                {"id": "bug", "expected": True, "text": "The cursor loses a record.", "purpose": "Watch delivery failures."},
                 {"id": "greeting", "expected": False, "text": "Hello."},
             ]))
             result = subprocess.run([str(TRIGGER.parents[1] / "scripts/evaluate-sidekick-jev"), "--cases", str(cases)],
@@ -152,6 +152,7 @@ class ClassifierTests(unittest.TestCase):
             self.assertEqual(summary, {"summary": {
                 "accepted_positives": 1, "accepted_negatives": 1, "held_positives": 0, "held_negatives": 0,
             }})
+            self.assertEqual(self.requests[0]["body"]["state"]["purpose"], "Watch delivery failures.")
 
 
 class ConnectTests(unittest.TestCase):

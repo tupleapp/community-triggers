@@ -23,8 +23,11 @@ def main():
         request = case.get("request") or {"version": 1, "elapsed_ms": 20000, "records": [
             {"type": "transcription_finished", "data": {"user_id": 1, "text": case["text"]}}
         ]}
+        env = {**os.environ, "TUPLE_JEV_DEBUG": "1"}
+        if "purpose" in case:
+            env["TUPLE_JEV_PURPOSE"] = case["purpose"]
         result = subprocess.run([str(trigger / "wake-if-jev")], input=json.dumps(request), text=True,
-                                capture_output=True, env={**os.environ, "TUPLE_JEV_DEBUG": "1"}, timeout=10)
+                                capture_output=True, env=env, timeout=10)
         if result.returncode not in (0, 1):
             print(result.stderr.strip(), file=sys.stderr)
             return 2

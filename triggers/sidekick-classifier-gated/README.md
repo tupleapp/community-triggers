@@ -4,6 +4,8 @@ Launch your default Tuple Connect agent when Capture starts. [Jev](https://types
 
 The trigger opens a terminal and starts one `tuple connect` session for the call that fired `call-capture-started`. The agent follows that call with `capture follow --on-wake --wake-if` and keeps its context between deliveries. Your Connect configuration chooses the agent and model; `TUPLE_JEV_HARNESS` can override the agent.
 
+The default sidekick tracks the goal, facts, constraints, decisions, and open questions. It helps participants reason through the work, catch mistakes, and choose next steps, contributing when it can move the conversation forward.
+
 ## Requirements
 
 - macOS, Python 3.9 or newer, and the Tuple CLI on your interactive shell PATH.
@@ -64,8 +66,8 @@ Check that the agent starts the reader with `--on-wake --wake-if`, confirms it i
 | `TUPLE_JEV_CLI` | `tuple` | CLI name or path; use `tuple-staging` for staging. |
 | `TUPLE_JEV_HARNESS` | Your Connect default | Optional agent, such as `codex` or `claude`. |
 | `TUPLE_JEV_ENV_FILE` | Local `.env` | Path to your private settings file. |
-| `TUPLE_JEV_PURPOSE` | Follow the call and help when useful. | Goal shared by the classifier and agent. |
-| `TUPLE_JEV_PROMPT` | Meaningful new call information | Replaces the relevance question. |
+| `TUPLE_JEV_PURPOSE` | Helpful collaborator | Role shared by the classifier and agent; described above. |
+| `TUPLE_JEV_PROMPT` | Context relevant to the purpose | Replaces the relevance question and its default criteria. |
 | `TUPLE_JEV_MODEL` | `jev-1.13.0` | Pinned model; re-evaluate thresholds when changing it. |
 | `TUPLE_JEV_THRESHOLD` | `0.65` | Minimum probability of meaningful content. |
 | `TUPLE_JEV_COMPLETE_THRESHOLD` | `0.60` | Minimum probability that the latest thought is complete. |
@@ -75,7 +77,9 @@ Check that the agent starts the reader with `--on-wake --wake-if`, confirms it i
 | `TUPLE_JEV_DEBUG` | Off | Set to `1` to create a decision log in the session's temporary directory. Connect prints its path. |
 | `TUPLE_JEV_LOG_FILE` | Unset | Optional JSONL log path; records scores and token counts, omitting transcripts and keys. |
 
-The default relevance prompt accepts concrete technical or product details, problems, questions, decisions, corrections, and next steps. It rejects greetings, thanks, filler, small talk, and acknowledgments alone. The completion question is separate, so an important but unfinished sentence keeps buffering.
+The default relevance question asks whether `pending_transcript` contains context that helps the assistant carry out `purpose`. Its yes/no criteria distinguish substantive facts, observations, problems, constraints, proposals, decisions, questions, and next steps from conversational padding. The purpose determines relevance, including for nontechnical tasks. Useful context can qualify even when the agent has nothing to say.
+
+The completion question asks whether the latest substantive utterance expresses an understandable point or question. A short answer or sentence fragment can qualify; an unfinished cause, comparison, proposal, or condition keeps buffering. It reads adjacent recognition segments together and allows trailing acknowledgments. The topic can continue after a delivery.
 
 For example, to watch for a particular problem:
 
@@ -110,6 +114,6 @@ To run the public labeled examples against your configured classifier and see sc
 TUPLE_JEV_ENV_FILE=/absolute/path/to/your.env scripts/evaluate-sidekick-jev
 ```
 
-This makes paid API requests. Supply `--cases /path/to/labeled.json` to evaluate your own examples; each entry takes `id`, `expected` (boolean), and either `text` or a complete wake-if `request`.
+This makes paid API requests. Supply `--cases /path/to/labeled.json` to evaluate your own examples; each entry takes `id`, `expected` (boolean), and either `text` or a complete wake-if `request`. An optional `purpose` sets the role for that example. Use `--cases tests/fixtures/sidekick-jev-boundaries.json` from the repository root to check short answers, incomplete speech, and custom-purpose relevance.
 
 The public [labeled examples](https://github.com/tupleapp/community-triggers/blob/main/tests/fixtures/sidekick-jev.json) cover completed technical updates, unfinished speech, social chatter, and a request to manipulate the classifier. Research notes and evaluation limits are in [the research report](https://github.com/tupleapp/community-triggers/blob/main/docs/jev-sidekick-research.md).

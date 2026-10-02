@@ -1,6 +1,6 @@
 # Classifier-gated Tuple Connect
 
-Use one Connect session per captured call, with `capture follow --on-wake --wake-if` controlling routine context delivery. Keep relevance and thought completion as separate classifier questions. Start with `jev-1.13.0`, relevance probability at least `0.65`, and completion probability at least `0.60`.
+Use one Connect session per Capture start, with `capture follow --on-wake --wake-if` controlling routine context delivery. Give the sidekick a concrete collaborator role and keep purpose-relative usefulness and thought completion as separate classifier questions. Start with `jev-1.13.0`, relevance probability at least `0.65`, and completion probability at least `0.60`.
 
 The agent keeps its context across updates. The trigger uses the native TypeSafe HTTP API, a key supplied through the environment or a private settings file, and an optional prompt override. It needs only Python's standard library.
 
@@ -40,7 +40,7 @@ The standalone executable also evaluated the 20 authored examples against the li
 
 ## Accumulating-buffer replay
 
-The final policy was replayed over all 482 finished speech segments from the three selected staging calls, in durable record-ID order. A rejected candidate retained its pending speech; an accepted candidate reset the buffer. This approximates semantic decisions, not the CLI's full live timing, lifecycle, or asynchronous predicate behavior.
+The baseline questions were replayed over all 482 finished speech segments from the three selected staging calls, in durable record-ID order. A rejected candidate retained its pending speech; an accepted candidate reset the buffer. This approximates semantic decisions, not the CLI's full live timing, lifecycle, or asynchronous predicate behavior.
 
 | Measure | Result |
 | --- | ---: |
@@ -54,6 +54,28 @@ The final policy was replayed over all 482 finished speech segments from the thr
 | Longest accepted wait | 135.7 seconds |
 
 Twenty-nine speech segments remained pending across the three calls' endings. A live CLI additionally flushes at call end; the replay does not count that as a classifier approval. These results show the intended quiet behavior and its tradeoff: useful context can wait over two minutes. For work needing continuously fresh context, use periodic batching with Jev as an early wake rather than `--on-wake` alone.
+
+## Purpose and question design
+
+The [use-case map](https://docs.typesafe.ai/concepts/use-case-map) identifies selecting context for downstream agents as a Jev use case. The [context-filtering cookbook](https://docs.typesafe.ai/cookbooks/classifying_rag_passages) asks for individual semantic properties and keeps the delivery decision in code. The [Noul guidance](https://docs.typesafe.ai/primitives/noul) recommends one yes/no condition per question and testing criteria on the workflow's own data. The [model's documented failure modes](https://docs.typesafe.ai/model-jaggedness/jev-1.13) favor direct questions, named state fields, and aligned criteria.
+
+The selected purpose makes the agent a collaborator that tracks the goal, facts, constraints, decisions, and open questions, then helps participants reason, catch mistakes, and choose next steps. The usefulness question refers directly to `pending_transcript` and `purpose`. Its criteria allow context that supports the role without requiring an immediate response. It judges the supplied buffer's usefulness, without claiming to know what the agent already knows.
+
+Completion asks whether the last substantive utterance expresses an understandable point or question. It reads recognition segments together and allows short answers, fragments, missing punctuation, and trailing acknowledgments, while holding genuinely unfinished premises. Both probabilities must meet their thresholds. A custom relevance prompt replaces the default relevance criteria as well, so those criteria cannot contradict a different user-defined question.
+
+Three variants were compared against the same 54 labeled examples through the native API, with the pinned model and unchanged thresholds. This comparison uses the corrected labels from the labeled relevance check.
+
+| Variant | Accepted positives | Accepted negatives | Held positives | Held negatives |
+| --- | ---: | ---: | ---: | ---: |
+| Generic purpose and baseline questions | 15 | 0 | 5 | 34 |
+| Concrete collaborator purpose and baseline questions | 15 | 0 | 5 | 34 |
+| Concrete purpose and explicit usefulness/completion criteria | 17 | 0 | 3 | 34 |
+
+The explicit criteria were then checked on 24 additional authored boundary examples, including short answers, complete fragments, operational facts, unfinished conditions, ordinary agent requests, and custom purposes. The baseline accepted 13 of 14 positives and one of ten negatives. The explicit criteria accepted all 14 positives and held all ten negatives. The baseline held a complete fragment and accepted a completed statement outside a custom purpose; the explicit criteria handled both according to their labels.
+
+The shipped predicate also matched all 24 boundary labels. One transport failure stopped the first run after 22 examples; an explicit rerun completed the two remaining examples. The predicate's normal error path stayed visible, with no automatic retry added.
+
+These are small, agent-labeled development checks. They support the selected wording, but do not establish production accuracy. The original replay above measures the baseline questions; it does not measure the selected defaults' live delivery frequency or latency.
 
 ## Implementation checks and staging limits
 
