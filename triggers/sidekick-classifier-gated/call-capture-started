@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${TUPLE_TRIGGER_CALL_ID:?sidekick-classifier-gated requires TUPLE_TRIGGER_CALL_ID}"
+
+TRIGGER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/tuple-sidekick-classifier-gated.XXXXXX")"
+LAUNCHER="${WORKDIR}/connect.command"
+
+{
+    printf '#!/bin/zsh -li\n'
+    for name in TUPLE_TRIGGER_CALL_ID TUPLE_TRIGGER_RECORDING_ID TUPLE_JEV_CLI TUPLE_JEV_ENV_FILE TUPLE_JEV_HARNESS TUPLE_JEV_PURPOSE TUPLE_JEV_PROMPT TUPLE_JEV_MODEL TUPLE_JEV_THRESHOLD TUPLE_JEV_COMPLETE_THRESHOLD TUPLE_JEV_MIN_SECONDS TUPLE_JEV_TIMEOUT_SECONDS TUPLE_JEV_API_URL TUPLE_JEV_DEBUG TUPLE_JEV_LOG_FILE TUPLE_ENV TUPLE_HOST; do
+        if [ "${!name+x}" = x ]; then
+            printf 'export %s=%q\n' "$name" "${!name}"
+        fi
+    done
+    printf 'exec python3 %q\n' "${TRIGGER_DIR}/connect.py"
+} > "$LAUNCHER"
+chmod 0700 "$LAUNCHER"
+
+if [ "${TUPLE_JEV_DRY_RUN:-}" = 1 ]; then
+    printf '%s\n' "$LAUNCHER"
+    exit 0
+fi
+
+case "${PREFERRED_TERM:-}" in
+    "") open "$LAUNCHER" ;;
+    ghostty) open -a Ghostty "$LAUNCHER" ;;
+    iterm) open -a iTerm "$LAUNCHER" ;;
+    terminal) open -a Terminal "$LAUNCHER" ;;
+    alacritty) open -na Alacritty --args -e "$LAUNCHER" ;;
+    *) printf 'Unknown PREFERRED_TERM: %s\n' "$PREFERRED_TERM" >&2; exit 2 ;;
+esac

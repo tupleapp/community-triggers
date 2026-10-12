@@ -147,7 +147,7 @@ test("completed Capture consumers retain recording scope", () => {
 test("live connect launchers preserve trigger context", () => {
   assert.deepEqual(
     triggerNamesWithEvent("call-capture-started"),
-    [...connectStartedTriggers, ...promptStartedTriggers].sort(),
+    [...connectStartedTriggers, ...promptStartedTriggers, "sidekick-classifier-gated"].sort(),
   );
 
   for (const triggerName of connectStartedTriggers) {

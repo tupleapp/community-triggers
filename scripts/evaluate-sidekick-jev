@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+from pathlib import Path
+import runpy
+import subprocess
+import sys
+
+
+def main():
+    root = Path(__file__).resolve().parents[1]
+    parser = argparse.ArgumentParser(description="Evaluate Jev wake decisions on labeled examples using your API key.")
+    parser.add_argument("--cases", type=Path, default=root / "tests/fixtures/sidekick-jev.json")
+    args = parser.parse_args()
+    trigger = root / "triggers/sidekick-classifier-gated"
+    connect = runpy.run_path(str(trigger / "connect.py"))
+    env_file = os.environ.get("TUPLE_JEV_ENV_FILE")
+    connect["load_env"](Path(env_file).expanduser() if env_file else trigger / ".env", bool(env_file))
+    counts = {"accepted_positives": 0, "accepted_negatives": 0, "held_positives": 0, "held_negatives": 0}
+    for case in json.loads(args.cases.read_text()):
+        request = case.get("request") or {"version": 1, "elapsed_ms": 20000, "records": [
+            {"type": "transcription_finished", "data": {"user_id": 1, "text": case["text"]}}
+        ]}
+        env = {**os.environ, "TUPLE_JEV_DEBUG": "1"}
+        if "purpose" in case:
+            env["TUPLE_JEV_PURPOSE"] = case["purpose"]
+        result = subprocess.run([str(trigger / "wake-if-jev")], input=json.dumps(request), text=True,
+                                capture_output=True, env=env, timeout=10)
+        if result.returncode not in (0, 1):
+            print(result.stderr.strip(), file=sys.stderr)
+            return 2
+        accepted = result.returncode == 0
+        key = ("accepted_" if accepted else "held_") + ("positives" if case["expected"] else "negatives")
+        counts[key] += 1
+        print(json.dumps({"id": case["id"], "expected": case["expected"], "decision": json.loads(result.stderr)}), flush=True)
+    print(json.dumps({"summary": counts}), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as error:
+        print(f"evaluate-sidekick-jev: {error}", file=sys.stderr)
+        sys.exit(2)
