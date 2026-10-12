@@ -1,8 +1,8 @@
 # Sidekick - Classifier Gated
 
-Launch your default Tuple Connect agent when Capture starts. [Jev](https://typesafe.ai) holds routine conversation updates until they contain useful information and a completed thought, then asks Tuple to deliver the buffered context.
+Bring your default Tuple Connect agent into a call when Capture starts. [Jev](https://typesafe.ai) buffers routine conversation updates until they contain useful context and the latest substantive point or question is complete.
 
-The trigger opens a terminal and starts one `tuple connect` session for the call that fired `call-capture-started`. The agent follows that call with `capture follow --on-wake --wake-if` and keeps its context between deliveries. Your Connect configuration chooses the agent and model; `TUPLE_JEV_HARNESS` can override the agent.
+The trigger opens a terminal and runs `tuple connect` for that call, using your configured agent and model. The agent keeps its context between deliveries. Set `TUPLE_JEV_HARNESS` to choose a different agent.
 
 The default sidekick tracks the goal, facts, constraints, decisions, and open questions. It helps participants reason through the work, catch mistakes, and choose next steps, contributing when it can move the conversation forward.
 
@@ -12,13 +12,13 @@ The default sidekick tracks the goal, facts, constraints, decisions, and open qu
 - A Tuple CLI whose `capture follow --help` lists `--wake-if` and `--on-wake`.
 - Capture enabled on the call.
 - A [TypeSafe API key](https://typesafe.ai).
-- A Connect agent with a tool or extension that delivers a running command's output into later agent turns. A tool that reports only when a command finishes cannot follow a live stream. Configure your agent with `tuple connect configure`.
+- A Connect agent that can receive a running command's output in later turns. Configure your agent with `tuple connect configure`.
 
-Connect passes the reader command to the agent as instructions. The agent must start it and keep following. An extension that already manages call delivery needs its own classifier integration.
+Connect instructs the agent to run `capture follow --on-wake --wake-if` and keep following the call. Its tools need to deliver output while that command is running. An extension that manages call delivery itself needs its own classifier integration.
 
 ## Install
 
-Copy this directory into the triggers folder shown in Tuple's settings. For production, that is normally `~/.tuple/triggers/sidekick-classifier-gated/`. For staging, use the folder shown by the staging app.
+Copy this directory into the triggers folder shown in Tuple's settings, normally `~/.tuple/triggers/sidekick-classifier-gated/`. Enable triggers and Capture in Tuple. The trigger runs each time Capture starts.
 
 From the installed trigger directory, copy the example settings to a private location:
 
@@ -28,35 +28,29 @@ cp .env.example "$HOME/.config/tuple/classifier.env"
 chmod 600 "$HOME/.config/tuple/classifier.env"
 ```
 
-Replace the placeholder `TYPESAFE_API_KEY` in that file. Add this line to your interactive zsh profile, such as `~/.zshrc`, so the terminal launcher can find it:
+Replace the placeholder `TYPESAFE_API_KEY` with your key. Add this line to your interactive zsh profile, such as `~/.zshrc`, so the terminal launcher can find the file:
 
 ```sh
 export TUPLE_JEV_ENV_FILE="$HOME/.config/tuple/classifier.env"
 ```
 
-You can also export `TYPESAFE_API_KEY` from your shell profile, or keep settings in a local `.env` in the installed trigger directory. Exported values take precedence over file settings. The generated launcher carries the settings-file path and delivery options; it leaves credentials in the private file or shell environment.
+You can also export `TYPESAFE_API_KEY` from your shell profile, or keep a `.env` in the installed trigger directory. Exported values take precedence over file settings. The launcher carries the settings-file path and delivery options; credentials stay in the private file or shell environment.
 
 The default terminal is your system's handler for `.command` files. Set `PREFERRED_TERM` in the trigger's environment to `ghostty`, `iterm`, `terminal`, or `alacritty` to select one.
 
-## Test in staging
+## Try it
 
-Set these values in your settings file:
-
-```dotenv
-TYPESAFE_API_KEY=your-typesafe-key
-TUPLE_JEV_CLI=tuple-staging
-TUPLE_JEV_DEBUG=1
-```
-
-During a captured staging call, run this from the trigger directory to launch immediately:
+During a captured call, run this from the installed trigger directory to launch immediately:
 
 ```sh
 python3 connect.py
 ```
 
-Use `python3 connect.py --dry-run --call <full-call-id>` to preview the Connect command. Once installed, starting Capture launches the trigger automatically when Tuple's triggers are enabled.
+Use `python3 connect.py --dry-run --call <full-call-id>` to preview the command. Set `TUPLE_JEV_DEBUG=1` in your settings file to log classifier decisions; Connect prints the log's path.
 
-Check that the agent starts the reader with `--on-wake --wake-if`, confirms it is following, and continues after a quiet batch. A classifier-approved delivery is an opportunity to contribute, not an instruction to speak every time.
+Check that the agent starts the reader with `--on-wake --wake-if` and keeps following after a quiet batch. Receiving context gives the agent an opportunity to contribute; it can keep listening when it has nothing useful to add.
+
+For staging, install into the folder shown in the staging app and set `TUPLE_JEV_CLI=tuple-staging` in your settings file.
 
 ## Classifier settings
 
@@ -77,16 +71,17 @@ Check that the agent starts the reader with `--on-wake --wake-if`, confirms it i
 | `TUPLE_JEV_DEBUG` | Off | Set to `1` to create a decision log in the session's temporary directory. Connect prints its path. |
 | `TUPLE_JEV_LOG_FILE` | Unset | Optional JSONL log path; records scores and token counts, omitting transcripts and keys. |
 
-The default relevance question asks whether `pending_transcript` contains context that helps the assistant carry out `purpose`. Its yes/no criteria distinguish substantive facts, observations, problems, constraints, proposals, decisions, questions, and next steps from conversational padding. The purpose determines relevance, including for nontechnical tasks. Useful context can qualify even when the agent has nothing to say.
+The default relevance question asks whether `pending_transcript` contains context that helps the assistant carry out `purpose`. Facts, observations, constraints, proposals, decisions, questions, and next steps can qualify. The purpose determines relevance for technical and nontechnical calls alike.
 
-The completion question asks whether the latest substantive utterance expresses an understandable point or question. A short answer or sentence fragment can qualify; an unfinished cause, comparison, proposal, or condition keeps buffering. It reads adjacent recognition segments together and allows trailing acknowledgments. The topic can continue after a delivery.
+The completion question asks whether the latest substantive utterance expresses an understandable point or question. Short answers, sentence fragments, and trailing acknowledgments can qualify. An unfinished cause, comparison, proposal, or condition keeps buffering. The topic can continue after a delivery.
 
-For example, to watch for a particular problem:
+Set a purpose to focus the sidekick on your call's goal. The default relevance question uses that purpose:
 
 ```dotenv
-TUPLE_JEV_PURPOSE="Help us diagnose missing Capture records."
-TUPLE_JEV_PROMPT="Does the pending transcript contain new evidence, a hypothesis, a question, or a decision about missing Capture records?"
+TUPLE_JEV_PURPOSE="Help us plan the office move. Track dates, vendors, access constraints, and owners."
 ```
+
+Set `TUPLE_JEV_PROMPT` when you want a different relevance question. It replaces the default question and its yes/no criteria; the completion question still applies.
 
 Jev probabilities are estimates. Try representative calls and label accepted and delayed examples before choosing thresholds for your workflow. The defaults favor quiet delivery and can postpone useful updates.
 
@@ -98,17 +93,11 @@ Tuple invokes `wake-if-jev` with a JSON object containing `version: 1`, `elapsed
 
 The trigger starts a session each time Capture starts. Restarting Capture can open another session; close the prior one first if you want only one. An existing session is instructed to keep following through Capture restarts until call end.
 
-The endpoint must implement Jev's typed evaluation API. The predicate validates answer types and probability ranges and uses only Python's standard library.
+Custom endpoints must implement the TypeSafe request and response contract linked above. The predicate validates answer types and probability ranges.
 
-## Validation
+## Evaluate your classifier
 
-From the repository root:
-
-```sh
-python3 -m unittest discover -s tests -p 'test_sidekick_jev.py' -v
-```
-
-To run the public labeled examples against your configured classifier and see scores:
+From a checkout of this repository, run the public labeled examples against your configured classifier:
 
 ```sh
 TUPLE_JEV_ENV_FILE=/absolute/path/to/your.env scripts/evaluate-sidekick-jev
