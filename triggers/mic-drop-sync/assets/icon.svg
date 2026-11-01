@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#5d42ba"/>
+      <stop offset="1" stop-color="#2a1668"/>
+    </linearGradient>
+    <linearGradient id="light" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.6"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0.12"/>
+      <stop offset="0.8" stop-color="#fff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#140a38" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0.2" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#ff6b6b"/>
+      <stop offset="1" stop-color="#c0202f"/>
+    </linearGradient>
+    <linearGradient id="redLight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#fff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="redEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.7"/>
+      <stop offset="0.45" stop-color="#fff" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#5a0a14" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffe9ea"/>
+    </linearGradient>
+    <clipPath id="circle"><circle cx="256" cy="256" r="156"/></clipPath>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="url(#base)"/>
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="url(#light)"/>
+  <rect x="10.5" y="10.5" width="491" height="491" rx="109.5" fill="none" stroke="url(#edge)" stroke-width="5"/>
+
+  <circle cx="256" cy="268" r="156" fill="#140a38" fill-opacity="0.35"/>
+  <circle cx="256" cy="256" r="156" fill="url(#red)"/>
+  <g clip-path="url(#circle)">
+    <circle cx="256" cy="256" r="156" fill="url(#redLight)"/>
+  </g>
+  <circle cx="256" cy="256" r="154" fill="none" stroke="url(#redEdge)" stroke-width="4"/>
+
+  <path d="M256 178 V326 M198 270 L256 328 L314 270" fill="none" stroke="#5a0a14" stroke-opacity="0.35" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 6)"/>
+  <path d="M256 178 V326 M198 270 L256 328 L314 270" fill="none" stroke="url(#arrow)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
