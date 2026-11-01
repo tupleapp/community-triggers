@@ -1,0 +1,7 @@
+{
+  "name": "Mic Drop Sync",
+  "description": "Keep Tuple's mute in sync with Mic Drop",
+  "category": "Workflow",
+  "platforms": ["macos"],
+  "language": "bash"
+}

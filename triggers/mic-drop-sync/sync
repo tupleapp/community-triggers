@@ -1,0 +1,180 @@
+#!/bin/bash
+#
+# Keeps Tuple's mute in sync with Mic Drop for the length of a call.
+#
+# Mic Drop is the source of truth: on joining, Tuple is set to match it. During the call, muting or unmuting in either app updates the other.
+#
+# `start` is run by the call-connected and room-joined hooks and `stop` by call-ended and room-left. It also exits by itself when the call ends.
+#
+# Needs only what ships with macOS 15+ (bash, jq, osascript) and the `tuple` CLI.
+
+set -u
+
+PID_FILE="${TMPDIR:-/tmp}/tuple-mic-drop-sync.pid"
+LOG_FILE="$HOME/Library/Logs/tuple-mic-drop-sync.log"
+MIC_DROP_POLL_SECONDS=0.25
+# Ignore readings that contradict a change we just made for this long, so a stale reading isn't copied back.
+SETTLE_SECONDS=2
+# Tuple briefly reports muted when joining, then unmutes itself. Tuple changes this soon after starting are corrected to match Mic Drop instead of being copied to it.
+JOIN_GRACE_SECONDS=5
+
+TUPLE=$(command -v tuple || echo /Applications/Tuple.app/Contents/SharedSupport/bin/tuple)
+JQ=$(command -v jq || echo /usr/bin/jq)
+
+log() { echo "[$(date '+%F %T')] $*" >> "$LOG_FILE"; }
+
+stop() {
+  [ -f "$PID_FILE" ] || return 0
+  local pid
+  pid=$(cat "$PID_FILE")
+  kill -0 "$pid" 2>/dev/null && kill "$pid"
+  rm -f "$PID_FILE"
+}
+
+start() {
+  if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    return 0
+  fi
+  # Detach so the hook can finish while syncing continues for the rest of the call.
+  nohup "$0" run >> "$LOG_FILE" 2>&1 < /dev/null &
+  echo $! > "$PID_FILE"
+}
+
+# Prints "M muted" or "M live" on every poll. Checking `running()` first avoids launching Mic Drop.
+watch_mic_drop() {
+  exec osascript -l JavaScript -e "
+    const app = Application('Mic Drop');
+    while (true) {
+      let state = 'unknown';
+      try { if (app.running()) state = app.read(); } catch (e) {}
+      if (state === 'muted') console.log('M muted');
+      else if (state !== 'unknown') console.log('M live');
+      delay($MIC_DROP_POLL_SECONDS);
+    }
+  " 2>&1
+}
+
+# Prints "T <connection state> <muted|live>" for each change to the call, and "T ended" when it ends.
+watch_tuple() {
+  "$TUPLE" state follow --raw --format json | "$JQ" --unbuffered -r '
+    select(.type == "current_call")
+    | if .data == null or .data.local == null then "T ended"
+      else "T \(.data.local.connection_state) \(if .data.local.audio_enabled then "live" else "muted" end)"
+      end
+  '
+  echo "T ended"
+}
+
+set_tuple() {
+  log "Setting Tuple to $1."
+  tuple_state=$1
+  tuple_expected=$1
+  tuple_expected_until=$((SECONDS + SETTLE_SECONDS))
+  local command=unmute
+  [ "$1" = muted ] && command=mute
+  if ! "$TUPLE" call "$command" > /dev/null 2>&1; then
+    # Probably not connected yet; the next Tuple update gets corrected while joining.
+    log "Couldn't set Tuple to $1."
+    tuple_state=unknown
+    tuple_expected_until=0
+  fi
+}
+
+set_mic_drop() {
+  log "Setting Mic Drop to $1."
+  mic_drop_state=$1
+  mic_drop_expected=$1
+  mic_drop_expected_until=$((SECONDS + SETTLE_SECONDS))
+  local command=unmute
+  [ "$1" = muted ] && command=mute
+  osascript -e "tell application \"Mic Drop\" to $command" > /dev/null 2>&1 || log "Couldn't set Mic Drop to $1."
+}
+
+cleanup() {
+  # The stop hook's TERM often arrives just as we exit because the call ended. Without this, it would cut cleanup short and leave the watchers running.
+  trap '' INT TERM
+  pkill -P "$mic_drop_watcher" 2>/dev/null
+  pkill -P "$tuple_watcher" 2>/dev/null
+  kill "$mic_drop_watcher" "$tuple_watcher" 2>/dev/null
+  rm -f "$PID_FILE"
+  log "Stopped."
+}
+
+run() {
+  if [ ! -x "$TUPLE" ] || [ ! -x "$JQ" ]; then
+    log "Missing the tuple command ($TUPLE) or jq ($JQ); jq ships with macOS 15 and later."
+    exit 1
+  fi
+
+  log "Started for this call."
+
+  local fifo
+  fifo=$(mktemp -u "${TMPDIR:-/tmp}/tuple-mic-drop-sync.XXXXXX")
+  mkfifo "$fifo"
+  exec 3<> "$fifo"
+  rm -f "$fifo"
+
+  watch_mic_drop >&3 &
+  mic_drop_watcher=$!
+  watch_tuple >&3 &
+  tuple_watcher=$!
+  # Stop bash reporting the watchers as "Terminated" when they're stopped.
+  disown -a
+
+  trap cleanup EXIT
+  trap 'exit 0' INT TERM
+
+  tuple_state=unknown
+  mic_drop_state=unknown
+  tuple_expected=""
+  tuple_expected_until=0
+  mic_drop_expected=""
+  mic_drop_expected_until=0
+
+  local source connection state
+  while read -r source connection state <&3; do
+    if [ "$source" = M ]; then
+      state=$connection
+      if [ "$SECONDS" -lt "$mic_drop_expected_until" ] && [ "$state" != "$mic_drop_expected" ]; then continue; fi
+      [ "$state" = "$mic_drop_state" ] && continue
+
+      if [ "$mic_drop_state" = unknown ]; then
+        mic_drop_state=$state
+        log "Mic Drop is $state."
+        set_tuple "$state"
+        continue
+      fi
+
+      mic_drop_state=$state
+      log "Mic Drop changed to $state."
+      [ "$tuple_state" != "$state" ] && set_tuple "$state"
+      continue
+    fi
+
+    [ "$connection" = ended ] && exit 0
+    # Mute commands only work once the call is connected.
+    [ "$connection" = connected ] || continue
+
+    if [ "$SECONDS" -lt "$tuple_expected_until" ] && [ "$state" != "$tuple_expected" ]; then continue; fi
+    [ "$state" = "$tuple_state" ] && continue
+    tuple_state=$state
+
+    if [ "$SECONDS" -lt "$JOIN_GRACE_SECONDS" ]; then
+      if [ "$mic_drop_state" != unknown ] && [ "$mic_drop_state" != "$state" ]; then
+        log "Tuple changed to $state while joining; keeping it matching Mic Drop."
+        set_tuple "$mic_drop_state"
+      fi
+      continue
+    fi
+
+    log "Tuple changed to $state."
+    [ "$mic_drop_state" != "$state" ] && set_mic_drop "$state"
+  done
+}
+
+case "${1:-}" in
+  start) start ;;
+  stop) stop ;;
+  run) run ;;
+  *) echo "Usage: $0 start|stop|run" >&2; exit 1 ;;
+esac

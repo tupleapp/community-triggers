@@ -1,0 +1,4 @@
+#!/bin/bash
+# Fires for everyone leaving a room; only stop for ourselves.
+[ "${TUPLE_TRIGGER_IS_SELF:-}" = true ] || exit 0
+exec "$(dirname "$0")/sync" stop
