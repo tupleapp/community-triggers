@@ -12,6 +12,7 @@ set -u
 
 PID_FILE="${TMPDIR:-/tmp}/tuple-mic-drop-sync.pid"
 LOG_FILE="$HOME/Library/Logs/tuple-mic-drop-sync.log"
+MIC_DROP_BUNDLE_ID=com.octopusthink.Mic-Drop
 MIC_DROP_POLL_SECONDS=0.25
 # Ignore readings that contradict a change we just made for this long, so a stale reading isn't copied back.
 SETTLE_SECONDS=2
@@ -40,13 +41,15 @@ start() {
   echo $! > "$PID_FILE"
 }
 
-# Prints "M muted" or "M live" on every poll. Checking `running()` first avoids launching Mic Drop.
+# Prints "M muted" or "M live" on every poll. Checking that Mic Drop is running first avoids launching it. NSRunningApplication is used for this because it's about four times cheaper than the Apple Event behind `app.running()`.
 watch_mic_drop() {
   exec osascript -l JavaScript -e "
+    ObjC.import('AppKit');
     const app = Application('Mic Drop');
+    const isRunning = () => \$.NSRunningApplication.runningApplicationsWithBundleIdentifier('$MIC_DROP_BUNDLE_ID').count > 0;
     while (true) {
       let state = 'unknown';
-      try { if (app.running()) state = app.read(); } catch (e) {}
+      try { if (isRunning()) state = app.read(); } catch (e) {}
       if (state === 'muted') console.log('M muted');
       else if (state !== 'unknown') console.log('M live');
       delay($MIC_DROP_POLL_SECONDS);
