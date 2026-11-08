@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Turn on Do Not Disturb when you join a room and off when you leave it, in the
+  Do Not Disturb trigger. Other participants joining or leaving don't change it.
 - Add Claude Desktop and ChatGPT Desktop sidekicks, plus a ChatGPT Desktop
   call-summary trigger. Desktop triggers open local agent sessions through each
   app's native URL scheme and pass version-matched `tuple connect prompt`

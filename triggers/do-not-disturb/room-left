@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# This trigger requires you to have created a shortcut in the Shortcuts macOS
+# app named "dnd-off", which disables Do Not Disturb focus.
+
+# room-left fires when anyone leaves a room you're in, so only act when you leave
+[ "${TUPLE_TRIGGER_IS_SELF:-false}" = "true" ] || exit 0
+
+shortcuts run "dnd-off"

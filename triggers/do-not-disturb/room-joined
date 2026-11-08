@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# This trigger requires you to have created a shortcut in the Shortcuts macOS
+# app named "dnd-on", which enables Do Not Disturb focus.
+
+# room-joined fires when anyone joins a room you're in, so only act on your own join
+[ "${TUPLE_TRIGGER_IS_SELF:-false}" = "true" ] || exit 0
+
+shortcuts run "dnd-on"
